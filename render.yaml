@@ -17,7 +17,7 @@ services:
     runtime: docker
     plan: free                 # FREE: ngủ sau 15' không dùng → request đầu chậm ~50s
     region: singapore
-    rootDir: lot-control/backend
+    rootDir: Iot-control/backend
     dockerfilePath: ./Dockerfile     # tương đối theo rootDir
     dockerContext: .
     envVars:
@@ -33,7 +33,7 @@ services:
   - name: lot-control-web
     type: web
     runtime: static            # static site free, KHÔNG ngủ (CDN toàn cầu, không có region)
-    rootDir: lot-control/frontend
+    rootDir: Iot-control/frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:

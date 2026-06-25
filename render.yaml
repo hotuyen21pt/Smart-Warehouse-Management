@@ -32,8 +32,7 @@ services:
   # ── Frontend (Vite static site) ────────────────────────
   - name: lot-control-web
     type: web
-    runtime: static            # static site free, KHÔNG ngủ
-    region: singapore
+    runtime: static            # static site free, KHÔNG ngủ (CDN toàn cầu, không có region)
     rootDir: Iot-control/frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist

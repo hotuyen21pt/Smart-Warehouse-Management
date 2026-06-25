@@ -1,7 +1,9 @@
 import axios from 'axios'
 import type { User, SKU, Lot } from '../types'
 
-const api = axios.create({ baseURL: '/api' })
+// Khi build cho Render: đặt VITE_API_BASE_URL = https://<backend>.onrender.com/api
+// Khi dev local: bỏ trống -> dùng '/api' (vite proxy sang localhost:8080).
+const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api' })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')

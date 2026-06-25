@@ -36,12 +36,11 @@ services:
     rootDir: Iot-control/frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
+    envVars:
+      # Frontend gọi thẳng backend (CORS đã mở). Đổi nếu URL backend khác.
+      - key: VITE_API_BASE_URL
+        value: https://lot-control-api.onrender.com/api
     routes:
-      # Chuyển tiếp gọi API sang backend (axios dùng baseURL '/api') → khỏi sửa code, khỏi CORS.
-      # ⚠️ Nếu Render đặt URL backend khác 'lot-control-api', sửa lại dòng destination cho khớp.
-      - type: rewrite
-        source: /api/*
-        destination: https://lot-control-api.onrender.com/api/$1
       # SPA fallback cho React Router (F5 ở route con không bị 404).
       - type: rewrite
         source: /*

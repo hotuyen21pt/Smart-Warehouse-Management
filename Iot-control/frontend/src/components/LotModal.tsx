@@ -60,11 +60,15 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{isEdit ? 'Cập nhật lô' : 'Thêm / Cập nhật lô'}</h2>
-          <p className="modal-subtitle">
-            {skuCode} · {skuName}
-          </p>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Đóng">✕</button>
+        <div className="modal-header modal-header-icon">
+          <span className="modal-icon">{isEdit ? '✏️' : '🏷️'}</span>
+          <div>
+            <h2>{isEdit ? 'Cập nhật lô' : 'Thêm / Cập nhật lô'}</h2>
+            <p className="modal-subtitle">
+              {skuCode} · {skuName}
+            </p>
+          </div>
         </div>
 
         {error && <div className="alert alert-error">{error}</div>}

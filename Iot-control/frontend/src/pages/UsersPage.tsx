@@ -97,9 +97,13 @@ export default function UsersPage() {
       {showCreate && (
         <div className="modal-overlay" onClick={() => setShowCreate(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Thêm tài khoản</h2>
-              <p className="modal-subtitle">Tạo tài khoản cho nhân viên chi nhánh</p>
+            <button type="button" className="modal-close" onClick={() => setShowCreate(false)} aria-label="Đóng">✕</button>
+            <div className="modal-header modal-header-icon">
+              <span className="modal-icon">👤</span>
+              <div>
+                <h2>Thêm tài khoản</h2>
+                <p className="modal-subtitle">Tạo tài khoản cho nhân viên chi nhánh</p>
+              </div>
             </div>
             {createError && <div className="alert alert-error">{createError}</div>}
             <form onSubmit={handleCreate}>

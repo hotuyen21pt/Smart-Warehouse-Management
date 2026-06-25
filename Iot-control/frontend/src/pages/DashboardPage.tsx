@@ -128,8 +128,13 @@ export default function DashboardPage() {
           <div className="sku-grid">
             {skus.map((sku) => (
               <div key={sku.id} className="sku-card" onClick={() => navigate(`/skus/${sku.id}`)}>
-                <div className="sku-code">{sku.sku_code}</div>
-                <div className="sku-name">{sku.name}</div>
+                <div className="sku-card-top">
+                  <span className="sku-card-icon">📦</span>
+                  <div className="sku-card-headings">
+                    <div className="sku-code">{sku.sku_code}</div>
+                    <div className="sku-name">{sku.name}</div>
+                  </div>
+                </div>
                 <div className="sku-stats">
                   <div className="stat">
                     <span className="stat-label">Tổng SL</span>
@@ -149,6 +154,7 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 )}
+                <span className="sku-card-arrow">→</span>
               </div>
             ))}
           </div>
@@ -174,6 +180,7 @@ export default function DashboardPage() {
       {showCreate && (
         <div className="modal-overlay" onClick={() => setShowCreate(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="modal-close" onClick={() => setShowCreate(false)} aria-label="Đóng">✕</button>
             <div className="modal-header modal-header-icon">
               <span className="modal-icon">📦</span>
               <div>

@@ -1,0 +1,49 @@
+# Render Blueprint — deploy cả stack (Postgres + backend + frontend) ở plan FREE.
+# Cách dùng: Render Dashboard → New → Blueprint → chọn repo này → Apply.
+# (File phải nằm ở GỐC repo; rootDir bên dưới trỏ vào thư mục con Iot-control.)
+
+databases:
+  - name: lot-control-db
+    databaseName: lot_control
+    user: lot_control
+    plan: free                 # FREE: 1GB, BỊ XOÁ sau 30 ngày — chỉ hợp thử nghiệm
+    region: singapore
+    postgresMajorVersion: "16"
+
+services:
+  # ── Backend (Go, Docker) ───────────────────────────────
+  - name: lot-control-api
+    type: web
+    runtime: docker
+    plan: free                 # FREE: ngủ sau 15' không dùng → request đầu chậm ~50s
+    region: singapore
+    rootDir: Iot-control/backend
+    dockerfilePath: ./Dockerfile     # tương đối theo rootDir
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL            # config.go đọc thẳng chuỗi này
+        fromDatabase:
+          name: lot-control-db
+          property: connectionString
+      - key: JWT_SECRET              # Render tự sinh chuỗi ngẫu nhiên mạnh
+        generateValue: true
+      # PORT do Render tự đặt; config.go đã đọc PORT nên không cần khai báo.
+
+  # ── Frontend (Vite static site) ────────────────────────
+  - name: lot-control-web
+    type: web
+    runtime: static            # static site free, KHÔNG ngủ
+    region: singapore
+    rootDir: Iot-control/frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      # Chuyển tiếp gọi API sang backend (axios dùng baseURL '/api') → khỏi sửa code, khỏi CORS.
+      # ⚠️ Nếu Render đặt URL backend khác 'lot-control-api', sửa lại dòng destination cho khớp.
+      - type: rewrite
+        source: /api/*
+        destination: https://lot-control-api.onrender.com/api/$1
+      # SPA fallback cho React Router (F5 ở route con không bị 404).
+      - type: rewrite
+        source: /*
+        destination: /index.html

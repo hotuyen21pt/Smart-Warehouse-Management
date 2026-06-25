@@ -448,6 +448,61 @@ body {
   box-shadow: var(--ring);
 }
 
+/* ─── Thanh lọc (ngày tạo SKU / lọc lô) ─────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+}
+
+.filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.filter-bar input[type='date'],
+.filter-bar input[type='text'] {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: var(--glass-bg-subtle);
+  color: var(--gray-900);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.filter-bar input:focus {
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+.filter-bar .filter-text { flex: 1 1 180px; min-width: 140px; }
+
+.filter-sep { color: var(--gray-400); }
+
+/* Đếm kết quả — đẩy về cuối hàng. */
+.filter-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  white-space: nowrap;
+}
+
 /* ─── SKU Grid ─────────────────────────────── */
 .sku-grid {
   display: grid;
@@ -1187,6 +1242,11 @@ body {
   /* ─── Users: xếp dọc cho thoáng trên phone ─── */
   .user-item { flex-direction: column; align-items: stretch; gap: 0.6rem; }
   .user-item > div:last-child { width: 100%; justify-content: space-between; }
+
+  /* ─── Thanh lọc: ô ngày co giãn, đếm xuống hàng riêng ─── */
+  .filter-bar input[type='date'] { flex: 1 1 38%; min-width: 0; }
+  .filter-bar .filter-text { flex: 1 1 100%; }
+  .filter-count { margin-left: 0; flex-basis: 100%; }
 }
 
 @keyframes sheetUp {

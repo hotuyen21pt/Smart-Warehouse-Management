@@ -25,6 +25,9 @@ export default function DashboardPage() {
   const [newSKU, setNewSKU] = useState({ sku_code: '', name: '', unit: 'cái' })
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
+  // Lọc theo ngày tạo SKU (client-side trên danh sách đã tải).
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -64,6 +67,14 @@ export default function DashboardPage() {
     await deleteSKU(id)
     fetchSKUs()
   }
+
+  const filteredSKUs = skus.filter((s) => {
+    const d = (s.created_at || '').slice(0, 10)
+    if (dateFrom && d < dateFrom) return false
+    if (dateTo && d > dateTo) return false
+    return true
+  })
+  const hasDateFilter = !!(dateFrom || dateTo)
 
   return (
     <div className="page">
@@ -117,6 +128,21 @@ export default function DashboardPage() {
           )}
         </div>
 
+        <div className="filter-bar">
+          <span className="filter-label">📅 Ngày tạo:</span>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Từ ngày" />
+          <span className="filter-sep">→</span>
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Đến ngày" />
+          {hasDateFilter && (
+            <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }}>
+              Xóa lọc
+            </button>
+          )}
+          {!loading && (
+            <span className="filter-count">{filteredSKUs.length}/{skus.length} SKU</span>
+          )}
+        </div>
+
         {loading ? (
           <div className="loading">Đang tải danh sách SKU...</div>
         ) : skus.length === 0 ? (
@@ -124,9 +150,14 @@ export default function DashboardPage() {
             <span className="empty-icon">📭</span>
             <p>{query ? `Không tìm thấy SKU nào cho "${query}"` : 'Chưa có SKU nào trong hệ thống'}</p>
           </div>
+        ) : filteredSKUs.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-icon">🔍</span>
+            <p>Không có SKU nào khớp khoảng ngày tạo đã chọn.</p>
+          </div>
         ) : (
           <div className="sku-grid">
-            {skus.map((sku) => (
+            {filteredSKUs.map((sku) => (
               <div key={sku.id} className="sku-card" onClick={() => navigate(`/skus/${sku.id}`)}>
                 <div className="sku-card-top">
                   <span className="sku-card-icon">📦</span>

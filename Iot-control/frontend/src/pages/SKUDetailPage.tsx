@@ -13,6 +13,10 @@ export default function SKUDetailPage() {
   const [loading, setLoading] = useState(true)
   const [editingLot, setEditingLot] = useState<Lot | null>(null)
   const [showAddLot, setShowAddLot] = useState(false)
+  // Bộ lọc lô: theo số lô (text) và khoảng "Thời gian kiểm".
+  const [lotQuery, setLotQuery] = useState('')
+  const [lotFrom, setLotFrom] = useState('')
+  const [lotTo, setLotTo] = useState('')
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -44,6 +48,18 @@ export default function SKUDetailPage() {
 
   if (loading) return <div className="loading-screen">Đang tải...</div>
   if (!sku) return null
+
+  // Lọc client-side trên dữ liệu lô đã tải sẵn.
+  const lots = sku.lots ?? []
+  const filteredLots = lots.filter((lot) => {
+    if (lotQuery && !lot.lot_number.toLowerCase().includes(lotQuery.toLowerCase())) return false
+    const d = (lot.counted_at || '').slice(0, 10) // ISO -> "YYYY-MM-DD", so sánh chuỗi là đủ
+    if (lotFrom && d < lotFrom) return false
+    if (lotTo && d > lotTo) return false
+    return true
+  })
+  const filteredTotal = filteredLots.reduce((sum, l) => sum + l.qty, 0)
+  const hasLotFilter = !!(lotQuery || lotFrom || lotTo)
 
   return (
     <div className="page">
@@ -96,15 +112,45 @@ export default function SKUDetailPage() {
           </button>
         </div>
 
-        {!sku.lots?.length ? (
+        {!lots.length ? (
           <div className="empty-state">
             <span className="empty-icon">🗂️</span>
             <p>Chưa có lô nào. Bấm "Thêm / Cập nhật lô" để bắt đầu kiểm đếm.</p>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table className="lot-table">
-              <thead>
+          <>
+            <div className="filter-bar">
+              <input
+                className="filter-text"
+                type="text"
+                placeholder="🔍 Tìm số lô..."
+                value={lotQuery}
+                onChange={(e) => setLotQuery(e.target.value)}
+              />
+              <span className="filter-label">📅 Kiểm:</span>
+              <input type="date" value={lotFrom} onChange={(e) => setLotFrom(e.target.value)} aria-label="Từ ngày" />
+              <span className="filter-sep">→</span>
+              <input type="date" value={lotTo} onChange={(e) => setLotTo(e.target.value)} aria-label="Đến ngày" />
+              {hasLotFilter && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setLotQuery(''); setLotFrom(''); setLotTo('') }}
+                >
+                  Xóa lọc
+                </button>
+              )}
+              <span className="filter-count">{filteredLots.length}/{lots.length} lô</span>
+            </div>
+
+            {!filteredLots.length ? (
+              <div className="empty-state">
+                <span className="empty-icon">🔍</span>
+                <p>Không có lô nào khớp bộ lọc.</p>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="lot-table">
+                  <thead>
                 <tr>
                   <th>Số lô</th>
                   <th>Ngày SX</th>
@@ -118,7 +164,7 @@ export default function SKUDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {sku.lots.map((lot) => (
+                {filteredLots.map((lot) => (
                   <tr key={lot.id}>
                     <td className="lot-number-cell" data-label="Số lô">{lot.lot_number}</td>
                     <td data-label="Ngày SX">{lot.manufacture_date || <span className="text-muted">—</span>}</td>
@@ -150,15 +196,19 @@ export default function SKUDetailPage() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={3} style={{ fontWeight: 600 }}>Tổng cộng</td>
+                  <td colSpan={3} style={{ fontWeight: 600 }}>
+                    {hasLotFilter ? 'Tổng (đã lọc)' : 'Tổng cộng'}
+                  </td>
                   <td className="qty-cell" style={{ fontWeight: 700, fontSize: '1rem' }}>
-                    {sku.total_qty.toLocaleString('vi-VN')} {sku.unit}
+                    {filteredTotal.toLocaleString('vi-VN')} {sku.unit}
                   </td>
                   <td colSpan={5}></td>
                 </tr>
               </tfoot>
-            </table>
-          </div>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </main>
 

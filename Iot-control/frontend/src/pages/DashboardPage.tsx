@@ -254,7 +254,7 @@ export default function DashboardPage() {
                   <input
                     value={newSKU.sku_code}
                     onChange={(e) => setNewSKU({ ...newSKU, sku_code: e.target.value })}
-                    placeholder="422493107"
+                    placeholder="Enter Code SKU"
                     required
                     autoFocus
                   />
@@ -275,7 +275,7 @@ export default function DashboardPage() {
                 <input
                   value={newSKU.name}
                   onChange={(e) => setNewSKU({ ...newSKU, name: e.target.value })}
-                  placeholder="VD: Sữa rửa mặt Cetaphil 500ml"
+                  placeholder="Enter Name SKU"
                   required
                 />
               </div>

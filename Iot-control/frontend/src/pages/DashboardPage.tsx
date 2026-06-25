@@ -149,11 +149,9 @@ export default function DashboardPage() {
               📷 Quét
             </button>
           )}
-          {user?.role === 'admin' && (
-            <button className="btn btn-primary" onClick={() => { setShowCreate(true); setCreateError('') }}>
-              + Thêm SKU
-            </button>
-          )}
+          <button className="btn btn-primary" onClick={() => { setShowCreate(true); setCreateError('') }}>
+            + Thêm SKU
+          </button>
         </div>
 
         <div className="filter-bar">
@@ -206,16 +204,14 @@ export default function DashboardPage() {
                     <span className="stat-value">{sku.lot_count}</span>
                   </div>
                 </div>
-                {user?.role === 'admin' && (
-                  <div className="sku-card-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={(e) => openEdit(sku, e)}>
-                      Sửa
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(sku.id, e)}>
-                      Xóa
-                    </button>
-                  </div>
-                )}
+                <div className="sku-card-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={(e) => openEdit(sku, e)}>
+                    Sửa
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(sku.id, e)}>
+                    Xóa
+                  </button>
+                </div>
                 <span className="sku-card-arrow">→</span>
               </div>
             ))}

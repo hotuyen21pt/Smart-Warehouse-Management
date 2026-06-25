@@ -73,9 +73,10 @@ body {
 
 .main {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.75rem 1.5rem;
+  /* Trải hết chiều rộng màn hình (bỏ giới hạn 1200px). */
+  max-width: none;
+  margin: 0;
+  padding: 1.75rem 2rem;
   width: 100%;
 }
 
@@ -795,6 +796,14 @@ body {
   color: var(--primary);
 }
 
+/* Cột Ghi chú: rộng hơn và cho phép xuống dòng để đọc đủ nội dung. */
+.lot-table .notes-cell {
+  white-space: normal;
+  min-width: 260px;
+  max-width: 380px;
+  word-break: break-word;
+}
+
 .action-buttons {
   display: flex;
   gap: 0.4rem;
@@ -1222,6 +1231,8 @@ body {
     text-align: right;
   }
   .lot-table td:last-child { border-bottom: none; }
+  /* Cột ghi chú không cần min-width khi đã ở dạng thẻ dọc. */
+  .lot-table .notes-cell { min-width: 0; max-width: none; }
   .lot-table td::before {
     content: attr(data-label);
     flex-shrink: 0;

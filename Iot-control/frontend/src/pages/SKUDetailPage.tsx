@@ -161,7 +161,7 @@ export default function SKUDetailPage() {
                   <th>Chi nhánh</th>
                   <th>Người kiểm</th>
                   <th>Thời gian kiểm</th>
-                  <th>Ghi chú</th>
+                  <th className="notes-cell">Ghi chú</th>
                   <th></th>
                 </tr>
               </thead>
@@ -182,7 +182,7 @@ export default function SKUDetailPage() {
                         hour: '2-digit', minute: '2-digit', second: '2-digit',
                       })}
                     </td>
-                    <td data-label="Ghi chú">{lot.notes || <span className="text-muted">—</span>}</td>
+                    <td className="notes-cell" data-label="Ghi chú">{lot.notes || <span className="text-muted">—</span>}</td>
                     <td className="actions-cell">
                       <div className="action-buttons">
                         <button className="btn btn-ghost btn-sm" onClick={() => setEditingLot(lot)}>

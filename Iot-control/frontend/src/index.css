@@ -157,6 +157,21 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* ─── Header menu (gom mục phụ) ─────────────────────────────
+   Desktop: hiển thị inline như cũ, nút ☰ ẩn.
+   Mobile: xem trong media query — thu lại sau ☰, mở panel đổ xuống. */
+.header-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.header-menu__toggle { display: none; }
+.header-menu__items {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 /* ─── Buttons ─────────────────────────────── */
 .btn {
   display: inline-flex;
@@ -927,6 +942,136 @@ body {
     animation: slideUp 0.2s ease;
   }
   .form-actions .btn { flex: 1; }
+
+  /* Header: chừa lề an toàn (tai thỏ / bo góc màn hình). */
+  .header {
+    padding-left: max(0.875rem, env(safe-area-inset-left));
+    padding-right: max(0.875rem, env(safe-area-inset-right));
+  }
+
+  /* Tránh iOS tự phóng to khi focus: input phải ≥16px. */
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .search-input { font-size: 16px; }
+
+  /* ─── Header menu: thu sau nút ☰, mở panel đổ xuống ─── */
+  .header-menu { position: relative; }
+  .header-menu__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .header-menu__items {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.6rem);
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    min-width: 220px;
+    padding: 0.6rem;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    z-index: 30;
+  }
+  .header-menu[data-open='true'] .header-menu__items {
+    display: flex;
+    animation: fadeUp 0.18s var(--ease) both;
+  }
+  .header-menu__items .btn {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 44px;
+  }
+  .header-menu__items .user-badge { width: 100%; }
+  /* Trong panel có chỗ rộng nên hiện lại nhãn chi nhánh. */
+  .header-menu__items .user-badge .branch-tag { display: inline-block; }
+
+  /* ─── Bảng lô → thẻ (card) trên điện thoại ─── */
+  .table-wrapper {
+    overflow-x: visible;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .lot-table { min-width: 0; }
+  .lot-table thead { display: none; }
+  .lot-table,
+  .lot-table tbody,
+  .lot-table tfoot,
+  .lot-table tr,
+  .lot-table td { display: block; }
+
+  .lot-table tbody tr {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 0.4rem 0.9rem;
+    margin-bottom: 0.9rem;
+  }
+  .lot-table tbody tr:hover td { background: transparent; }
+
+  .lot-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--gray-100);
+    white-space: normal;
+    text-align: right;
+  }
+  .lot-table td:last-child { border-bottom: none; }
+  .lot-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-500);
+    text-align: left;
+  }
+
+  /* Ô chứa nút Sửa/Xóa: bỏ canh phải, nút trải đều và to dễ chạm. */
+  .lot-table td.actions-cell { padding-top: 0.75rem; }
+  .lot-table td.actions-cell::before { display: none; }
+  .lot-table td.actions-cell .action-buttons { width: 100%; gap: 0.6rem; }
+  .lot-table td.actions-cell .action-buttons .btn { flex: 1; min-height: 42px; }
+
+  /* Dòng tổng cộng thành thẻ nhấn mạnh. */
+  .lot-table tfoot tr {
+    background: var(--primary-light);
+    border: 1px solid var(--primary-soft);
+    border-radius: var(--radius-lg);
+    padding: 0.5rem 0.9rem;
+  }
+  .lot-table tfoot td {
+    border: none;
+    padding: 0.3rem 0;
+    font-size: 0.95rem;
+  }
+  .lot-table tfoot td:empty { display: none; }
+
+  /* ─── Users: xếp dọc cho thoáng trên phone ─── */
+  .user-item { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+  .user-item > div:last-child { width: 100%; justify-content: space-between; }
 }
 
 @keyframes sheetUp {

@@ -1,12 +1,16 @@
-# Mẫu cấu hình. Copy file này thành `config.yaml` rồi sửa cho khớp MySQL của bạn:
+# Mẫu cấu hình. Copy file này thành `config.yaml` rồi sửa cho khớp PostgreSQL của bạn:
 #   cp config.example.yaml config.yaml
 server:
   port: 8080
   jwt_secret: lot-control-secret-2024
 
 database:
+  # Cách 1: dùng chuỗi kết nối đầy đủ (vd Render: postgres://user:pass@host:port/db).
+  # url: postgres://user:pass@host:5432/lot_control
+  # Cách 2: khai báo từng phần (để trống url ở trên).
   host: localhost
-  port: 3306
-  user: root
-  password: ""
+  port: 5432
+  user: postgres
+  password: "lot123456"
   name: lot_control
+  sslmode: disable      # local: disable; DB managed (Render/Aiven): require

@@ -111,6 +111,7 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
               <label>Số lượng *</label>
               <input
                 type="number"
+                inputMode="numeric"
                 min="0"
                 value={form.qty}
                 onChange={(e) => setForm({ ...form, qty: Number(e.target.value) })}

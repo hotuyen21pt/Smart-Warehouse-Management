@@ -153,6 +153,7 @@ docker compose ps                # trạng thái container
 docker compose down              # tắt (giữ dữ liệu)
 docker compose down -v           # tắt + xóa dữ liệu DB
 ```
+./cloudflared.exe tunnel --url https://localhost:5173 --no-tls-verify
 
 - Backend: `http://localhost:8080` — frontend (`npm run dev`) proxy `/api` vào đây, không cần đổi gì.
 - MySQL: kết nối Navicat tới `localhost:3307`, user `root`, password `lot123456` (cấu hình trong `docker-compose.yml`).

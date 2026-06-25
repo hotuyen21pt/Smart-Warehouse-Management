@@ -1,18 +1,19 @@
 services:
   db:
-    image: mysql:8.0
-    container_name: lot-mysql
+    image: postgres:16-alpine
+    container_name: lot-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: lot123456
-      MYSQL_DATABASE: lot_control
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lot123456
+      POSTGRES_DB: lot_control
     ports:
-      # Host 3307 -> tránh đụng MySQL local (3306). Navicat kết nối localhost:3307.
-      - "3307:3306"
+      # Host 5433 -> tránh đụng Postgres local (5432).
+      - "5433:5432"
     volumes:
-      - db_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-plot123456"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lot_control"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -22,11 +23,12 @@ services:
     container_name: lot-backend
     restart: unless-stopped
     environment:
-      DB_HOST: db          # tên service MySQL trong mạng docker
-      DB_PORT: 3306
-      DB_USER: root
+      DB_HOST: db          # tên service Postgres trong mạng docker
+      DB_PORT: 5432
+      DB_USER: postgres
       DB_PASSWORD: lot123456
       DB_NAME: lot_control
+      DB_SSLMODE: disable
       SERVER_PORT: 8080
       JWT_SECRET: lot-control-secret-2024
     ports:
@@ -36,4 +38,4 @@ services:
         condition: service_healthy
 
 volumes:
-  db_data:
+  pg_data:

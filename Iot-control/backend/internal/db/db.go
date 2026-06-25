@@ -1,12 +1,10 @@
 package db
 
 import (
-	stdsql "database/sql"
 	"fmt"
 
-	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
@@ -14,44 +12,26 @@ import (
 	"lot-control/internal/models"
 )
 
-// Init đảm bảo database tồn tại, kết nối GORM, chạy migrate và seed.
+// Init kết nối GORM tới PostgreSQL, chạy migrate và seed.
+// (Database phải tồn tại sẵn — trên Render là DB được tạo lúc khởi tạo dịch vụ;
+//  ở local là DB do docker-compose tạo qua POSTGRES_DB.)
 func Init(cfg *config.Config) (*gorm.DB, error) {
-	d := cfg.Database
-
-	// 1. Tạo database nếu chưa có (kết nối không kèm tên DB).
-	rootDSN := fmt.Sprintf("%s:%s@tcp(%s:%d)/?charset=utf8mb4&parseTime=true",
-		d.User, d.Password, d.Host, d.Port)
-	rootDB, err := stdsql.Open("mysql", rootDSN)
-	if err != nil {
-		return nil, fmt.Errorf("kết nối MySQL: %w", err)
-	}
-	if err := rootDB.Ping(); err != nil {
-		rootDB.Close()
-		return nil, fmt.Errorf("không ping được MySQL (kiểm tra server/thông tin trong config.yaml): %w", err)
-	}
-	_, err = rootDB.Exec(fmt.Sprintf(
-		"CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", d.Name))
-	rootDB.Close()
-	if err != nil {
-		return nil, fmt.Errorf("tạo database %q: %w", d.Name, err)
-	}
-
-	// 2. Kết nối GORM tới database.
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local",
-		d.User, d.Password, d.Host, d.Port, d.Name)
-	gdb, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+	gdb, err := gorm.Open(postgres.Open(cfg.DatabaseDSN()), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Warn),
+		// Dịch lỗi của driver sang lỗi GORM chung (vd gorm.ErrDuplicatedKey),
+		// nhờ đó repository không phải phụ thuộc mã lỗi riêng của Postgres.
+		TranslateError: true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("GORM mở kết nối: %w", err)
+		return nil, fmt.Errorf("GORM mở kết nối PostgreSQL (kiểm tra DATABASE_URL/DB_* trong cấu hình): %w", err)
 	}
 
-	// 3. Tạo/cập nhật bảng.
+	// Tạo/cập nhật bảng.
 	if err := gdb.AutoMigrate(&models.User{}, &models.SKU{}, &models.Lot{}); err != nil {
 		return nil, fmt.Errorf("automigrate: %w", err)
 	}
 
-	// 4. Tạo tài khoản admin mặc định nếu chưa có.
+	// Tạo tài khoản admin mặc định nếu chưa có.
 	if err := seed(gdb); err != nil {
 		return nil, fmt.Errorf("seed: %w", err)
 	}

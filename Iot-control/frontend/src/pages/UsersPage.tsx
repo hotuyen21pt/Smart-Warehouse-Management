@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { listUsers, createUser, deleteUser } from '../api/client'
 import type { User } from '../types'
 import ThemeToggle from '../components/ThemeToggle'
+import HeaderMenu from '../components/HeaderMenu'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -50,10 +51,12 @@ export default function UsersPage() {
         </Link>
         <div className="header-right">
           <ThemeToggle />
-          <div className="user-badge">
-            <span>{me?.full_name}</span>
-            <span className="branch-tag">{me?.branch}</span>
-          </div>
+          <HeaderMenu>
+            <div className="user-badge">
+              <span>{me?.full_name}</span>
+              <span className="branch-tag">{me?.branch}</span>
+            </div>
+          </HeaderMenu>
         </div>
       </header>
 

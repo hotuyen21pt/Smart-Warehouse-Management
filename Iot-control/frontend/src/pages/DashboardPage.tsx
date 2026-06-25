@@ -5,12 +5,13 @@ import { listSKUs, createSKU, deleteSKU } from '../api/client'
 import type { SKU } from '../types'
 
 import ThemeToggle from '../components/ThemeToggle'
+import HeaderMenu from '../components/HeaderMenu'
 
 // Lazy-load để html5-qrcode chỉ tải khi nhân viên mở scanner.
 const BarcodeScannerModal = lazy(() => import('../components/BarcodeScannerModal'))
 
 // Đơn vị tính thường dùng — cho phép chọn nhanh khi tạo SKU.
-const COMMON_UNITS = ['cái', 'hộp', 'chai', 'vỉ', 'lốc', 'tuýp']
+const COMMON_UNITS = ['cái', 'hộp', 'chai', 'vỉ', 'lốc', 'tuýp', 'thùng']
 
 const cameraSupported =
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
@@ -73,18 +74,20 @@ export default function DashboardPage() {
 
         <div className="header-right">
           <ThemeToggle />
-          {user?.role === 'admin' && (
-            <Link to="/users" className="btn btn-ghost btn-sm">
-              Tài khoản
-            </Link>
-          )}
-          <div className="user-badge">
-            <span>{user?.full_name}</span>
-            <span className="branch-tag">{user?.branch}</span>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={logout}>
-            Đăng xuất
-          </button>
+          <HeaderMenu>
+            {user?.role === 'admin' && (
+              <Link to="/users" className="btn btn-ghost btn-sm">
+                Tài khoản
+              </Link>
+            )}
+            <div className="user-badge">
+              <span>{user?.full_name}</span>
+              <span className="branch-tag">{user?.branch}</span>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={logout}>
+              Đăng xuất
+            </button>
+          </HeaderMenu>
         </div>
       </header>
 

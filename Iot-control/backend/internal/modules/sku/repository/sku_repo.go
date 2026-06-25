@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"lot-control/internal/models"
@@ -111,7 +110,8 @@ func (r *skuRepository) List(q string) ([]models.SKU, error) {
 
 	if q != "" {
 		like := "%" + q + "%"
-		tx = tx.Where("s.sku_code LIKE ? OR s.name LIKE ?", like, like)
+		// ILIKE: tìm không phân biệt hoa/thường (Postgres; MySQL LIKE vốn đã không phân biệt).
+		tx = tx.Where("s.sku_code ILIKE ? OR s.name ILIKE ?", like, like)
 	}
 
 	var rows []skuScan
@@ -199,11 +199,8 @@ func (r *skuRepository) Delete(id int64) error {
 	return err
 }
 
-// isDuplicate nhận biết lỗi trùng khóa (MySQL error 1062).
+// isDuplicate nhận biết lỗi trùng khóa, dựa trên lỗi GORM đã được
+// chuẩn hóa (cần gorm.Config{TranslateError: true} khi mở kết nối).
 func isDuplicate(err error) bool {
-	var me *mysql.MySQLError
-	if errors.As(err, &me) {
-		return me.Number == 1062
-	}
-	return false
+	return errors.Is(err, gorm.ErrDuplicatedKey)
 }

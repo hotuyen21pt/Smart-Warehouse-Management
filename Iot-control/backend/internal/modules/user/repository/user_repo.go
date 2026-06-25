@@ -3,7 +3,6 @@ package repository
 import (
 	"errors"
 
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"lot-control/internal/models"
@@ -59,11 +58,8 @@ func (r *userRepository) Delete(id int64) error {
 	return r.db.Delete(&models.User{}, id).Error
 }
 
-// isDuplicate nhận biết lỗi trùng khóa (MySQL error 1062).
+// isDuplicate nhận biết lỗi trùng khóa, dựa trên lỗi GORM đã được
+// chuẩn hóa (cần gorm.Config{TranslateError: true} khi mở kết nối).
 func isDuplicate(err error) bool {
-	var me *mysql.MySQLError
-	if errors.As(err, &me) {
-		return me.Number == 1062
-	}
-	return false
+	return errors.Is(err, gorm.ErrDuplicatedKey)
 }

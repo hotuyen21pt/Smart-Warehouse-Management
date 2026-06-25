@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import type { SKU, Lot } from '../types'
 import LotModal from '../components/LotModal'
 import ThemeToggle from '../components/ThemeToggle'
+import HeaderMenu from '../components/HeaderMenu'
 
 export default function SKUDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -58,10 +59,12 @@ export default function SKUDetailPage() {
 
         <div className="header-right">
           <ThemeToggle />
-          <div className="user-badge">
-            <span>{user?.full_name}</span>
-            <span className="branch-tag">{user?.branch}</span>
-          </div>
+          <HeaderMenu>
+            <div className="user-badge">
+              <span>{user?.full_name}</span>
+              <span className="branch-tag">{user?.branch}</span>
+            </div>
+          </HeaderMenu>
         </div>
       </header>
 
@@ -117,22 +120,22 @@ export default function SKUDetailPage() {
               <tbody>
                 {sku.lots.map((lot) => (
                   <tr key={lot.id}>
-                    <td className="lot-number-cell">{lot.lot_number}</td>
-                    <td>{lot.manufacture_date || <span className="text-muted">—</span>}</td>
-                    <td>{lot.expiry_date || <span className="text-muted">—</span>}</td>
-                    <td className="qty-cell">
+                    <td className="lot-number-cell" data-label="Số lô">{lot.lot_number}</td>
+                    <td data-label="Ngày SX">{lot.manufacture_date || <span className="text-muted">—</span>}</td>
+                    <td data-label="HSD">{lot.expiry_date || <span className="text-muted">—</span>}</td>
+                    <td className="qty-cell" data-label="Số lượng">
                       {lot.qty.toLocaleString('vi-VN')} {sku.unit}
                     </td>
-                    <td>{lot.branch || <span className="text-muted">—</span>}</td>
-                    <td>{lot.counted_by_name || <span className="text-muted">—</span>}</td>
-                    <td>
+                    <td data-label="Chi nhánh">{lot.branch || <span className="text-muted">—</span>}</td>
+                    <td data-label="Người kiểm">{lot.counted_by_name || <span className="text-muted">—</span>}</td>
+                    <td data-label="Thời gian kiểm">
                       {new Date(lot.counted_at).toLocaleString('vi-VN', {
                         day: '2-digit', month: '2-digit', year: 'numeric',
                         hour: '2-digit', minute: '2-digit',
                       })}
                     </td>
-                    <td>{lot.notes || <span className="text-muted">—</span>}</td>
-                    <td>
+                    <td data-label="Ghi chú">{lot.notes || <span className="text-muted">—</span>}</td>
+                    <td className="actions-cell">
                       <div className="action-buttons">
                         <button className="btn btn-ghost btn-sm" onClick={() => setEditingLot(lot)}>
                           Sửa

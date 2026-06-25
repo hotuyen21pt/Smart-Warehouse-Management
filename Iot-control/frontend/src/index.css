@@ -475,6 +475,7 @@ body {
 }
 
 .filter-bar input[type='date'],
+.filter-bar input[type='datetime-local'],
 .filter-bar input[type='text'] {
   padding: 0.45rem 0.65rem;
   border: 1px solid var(--gray-200);
@@ -586,6 +587,17 @@ body {
   overflow: hidden;
   line-height: 1.35;
   min-height: 1.2rem;
+}
+
+/* Dòng thời gian tạo SKU (tới giây). */
+.sku-card-meta {
+  margin-top: 0.85rem;
+  padding-top: 0.7rem;
+  padding-right: 1.6rem; /* chừa chỗ cho mũi tên góc dưới-phải */
+  border-top: 1px solid var(--gray-100);
+  font-size: 0.72rem;
+  color: var(--gray-400);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mũi tên gợi ý thẻ bấm được — hiện rõ khi hover. */
@@ -1245,9 +1257,11 @@ body {
   .user-item { flex-direction: column; align-items: stretch; gap: 0.6rem; }
   .user-item > div:last-child { width: 100%; justify-content: space-between; }
 
-  /* ─── Thanh lọc: ô ngày co giãn, đếm xuống hàng riêng ─── */
-  .filter-bar input[type='date'] { flex: 1 1 38%; min-width: 0; }
+  /* ─── Thanh lọc: ô thời điểm chiếm trọn hàng cho dễ chọn, đếm xuống hàng riêng ─── */
+  .filter-bar input[type='date'],
+  .filter-bar input[type='datetime-local'] { flex: 1 1 100%; min-width: 0; }
   .filter-bar .filter-text { flex: 1 1 100%; }
+  .filter-sep { display: none; }
   .filter-count { margin-left: 0; flex-basis: 100%; }
 }
 

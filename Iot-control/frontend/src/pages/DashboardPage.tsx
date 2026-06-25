@@ -13,6 +13,15 @@ const BarcodeScannerModal = lazy(() => import('../components/BarcodeScannerModal
 // Đơn vị tính thường dùng — cho phép chọn nhanh khi tạo SKU.
 const COMMON_UNITS = ['cái', 'hộp', 'chai', 'vỉ', 'lốc', 'tuýp', 'thùng']
 
+// Hiển thị ngày giờ đầy đủ tới giây theo giờ địa phương.
+const fmtDateTime = (s?: string) =>
+  s
+    ? new Date(s).toLocaleString('vi-VN', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      })
+    : '—'
+
 const cameraSupported =
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
 
@@ -97,9 +106,10 @@ export default function DashboardPage() {
   }
 
   const filteredSKUs = skus.filter((s) => {
-    const d = (s.created_at || '').slice(0, 10)
-    if (dateFrom && d < dateFrom) return false
-    if (dateTo && d > dateTo) return false
+    if (!dateFrom && !dateTo) return true
+    const t = s.created_at ? new Date(s.created_at).getTime() : 0
+    if (dateFrom && t < new Date(dateFrom).getTime()) return false
+    if (dateTo && t > new Date(dateTo).getTime()) return false
     return true
   })
   const hasDateFilter = !!(dateFrom || dateTo)
@@ -156,9 +166,9 @@ export default function DashboardPage() {
 
         <div className="filter-bar">
           <span className="filter-label">📅 Ngày tạo:</span>
-          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Từ ngày" />
+          <input type="datetime-local" step="1" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Từ thời điểm" />
           <span className="filter-sep">→</span>
-          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Đến ngày" />
+          <input type="datetime-local" step="1" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Đến thời điểm" />
           {hasDateFilter && (
             <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(''); setDateTo('') }}>
               Xóa lọc
@@ -204,6 +214,7 @@ export default function DashboardPage() {
                     <span className="stat-value">{sku.lot_count}</span>
                   </div>
                 </div>
+                <div className="sku-card-meta">🕒 Tạo: {fmtDateTime(sku.created_at)}</div>
                 <div className="sku-card-actions">
                   <button className="btn btn-ghost btn-sm" onClick={(e) => openEdit(sku, e)}>
                     Sửa

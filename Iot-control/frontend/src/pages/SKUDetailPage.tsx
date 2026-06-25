@@ -53,9 +53,11 @@ export default function SKUDetailPage() {
   const lots = sku.lots ?? []
   const filteredLots = lots.filter((lot) => {
     if (lotQuery && !lot.lot_number.toLowerCase().includes(lotQuery.toLowerCase())) return false
-    const d = (lot.counted_at || '').slice(0, 10) // ISO -> "YYYY-MM-DD", so sánh chuỗi là đủ
-    if (lotFrom && d < lotFrom) return false
-    if (lotTo && d > lotTo) return false
+    if (lotFrom || lotTo) {
+      const t = lot.counted_at ? new Date(lot.counted_at).getTime() : 0
+      if (lotFrom && t < new Date(lotFrom).getTime()) return false
+      if (lotTo && t > new Date(lotTo).getTime()) return false
+    }
     return true
   })
   const filteredTotal = filteredLots.reduce((sum, l) => sum + l.qty, 0)
@@ -128,9 +130,9 @@ export default function SKUDetailPage() {
                 onChange={(e) => setLotQuery(e.target.value)}
               />
               <span className="filter-label">📅 Kiểm:</span>
-              <input type="date" value={lotFrom} onChange={(e) => setLotFrom(e.target.value)} aria-label="Từ ngày" />
+              <input type="datetime-local" step="1" value={lotFrom} onChange={(e) => setLotFrom(e.target.value)} aria-label="Từ thời điểm" />
               <span className="filter-sep">→</span>
-              <input type="date" value={lotTo} onChange={(e) => setLotTo(e.target.value)} aria-label="Đến ngày" />
+              <input type="datetime-local" step="1" value={lotTo} onChange={(e) => setLotTo(e.target.value)} aria-label="Đến thời điểm" />
               {hasLotFilter && (
                 <button
                   className="btn btn-ghost btn-sm"
@@ -177,7 +179,7 @@ export default function SKUDetailPage() {
                     <td data-label="Thời gian kiểm">
                       {new Date(lot.counted_at).toLocaleString('vi-VN', {
                         day: '2-digit', month: '2-digit', year: 'numeric',
-                        hour: '2-digit', minute: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit',
                       })}
                     </td>
                     <td data-label="Ghi chú">{lot.notes || <span className="text-muted">—</span>}</td>

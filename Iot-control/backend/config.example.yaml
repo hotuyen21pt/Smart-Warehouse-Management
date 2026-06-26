@@ -14,3 +14,18 @@ database:
   password: "lot123456"
   name: lot_control
   sslmode: disable      # local: disable; DB managed (Render/Aiven): require
+
+storage:
+  # MinIO / object storage cho ảnh của lô. Có thể ghi đè bằng env MINIO_*.
+  endpoint: localhost:9000          # endpoint nội bộ để backend kết nối (docker: minio:9000)
+  public_endpoint: http://localhost:9000  # gốc URL trình duyệt truy cập ảnh
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: lot-images
+  use_ssl: false
+
+box_counter:
+  # Dịch vụ đếm box (computer vision). Có thể ghi đè bằng env BOX_COUNTER_URL.
+  # Để trống = tắt tính năng đếm tự động khi upload ảnh lô.
+  # Docker: http://box-counter:8000 | dev local: http://localhost:8000
+  url: ""

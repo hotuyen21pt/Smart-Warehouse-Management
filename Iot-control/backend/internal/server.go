@@ -10,6 +10,7 @@ import (
 	"lot-control/internal/config"
 	"lot-control/internal/db"
 	"lot-control/pkg/logger"
+	"lot-control/pkg/storage"
 
 	auth "lot-control/internal/modules/auth"
 	authRepository "lot-control/internal/modules/auth/repository"
@@ -31,10 +32,11 @@ import (
 // Server là composition root: giữ phụ thuộc dùng chung (db, cfg, logger)
 // và nối các module lại với nhau qua chuỗi repository -> usecase -> routes.
 type Server struct {
-	cfg    *config.Config
-	db     *gorm.DB
-	logger logger.ILogger
-	engine *gin.Engine
+	cfg     *config.Config
+	db      *gorm.DB
+	logger  logger.ILogger
+	engine  *gin.Engine
+	storage storage.IStorage
 }
 
 func New(cfg *config.Config) (*Server, error) {
@@ -43,11 +45,17 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
+	store, err := storage.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
-		cfg:    cfg,
-		db:     database,
-		logger: logger.New(),
-		engine: gin.Default(),
+		cfg:     cfg,
+		db:      database,
+		logger:  logger.New(),
+		engine:  gin.Default(),
+		storage: store,
 	}
 
 	s.setupMiddleware()
@@ -77,7 +85,7 @@ func (s *Server) registerRoutes() {
 	skuUC := skuUsecase.InitUseCase(s.cfg, s.logger, skuRepo)
 
 	lotRepo := lotRepository.InitLotRepository(s.db)
-	lotUC := lotUsecase.InitUseCase(s.cfg, s.logger, lotRepo)
+	lotUC := lotUsecase.InitUseCase(s.cfg, s.logger, lotRepo, s.storage)
 
 	userRepo := userRepository.InitUserRepository(s.db)
 	userUC := userUsecase.InitUseCase(s.cfg, s.logger, userRepo)

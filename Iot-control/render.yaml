@@ -1,0 +1,116 @@
+# Render Blueprint — dựng toàn bộ stack từ GitHub.
+# Đẩy file này lên repo, vào Render > New > Blueprint, chọn repo này.
+#
+# Kiến trúc 5 thành phần:
+#   - lot-postgres   : PostgreSQL (managed)
+#   - lot-minio      : MinIO (object storage) + Render Disk để lưu ảnh bền vững
+#   - lot-box-counter: dịch vụ đếm box (YOLO/torch)
+#   - lot-backend    : API Go
+#   - lot-frontend   : web tĩnh (Vite build)
+#
+# LƯU Ý CHI PHÍ / GIỚI HẠN:
+#   * Render Disk CHỈ chạy trên instance trả phí -> lot-minio đặt plan "starter".
+#   * lot-box-counter nạp torch + YOLO rất ngốn RAM; free (512MB) gần như chắc
+#     chắn OOM khi load model. Cân nhắc nâng plan lên "standard" nếu bị crash.
+#   * Các biến đánh dấu `sync: false` PHẢI tự điền trên dashboard sau lần deploy
+#     đầu (vì phụ thuộc URL/credential chéo giữa các service). Xem README cuối file.
+
+databases:
+  - name: lot-postgres
+    databaseName: lot_control
+    user: lot_user
+    plan: free            # Postgres free của Render hết hạn sau ~90 ngày; nâng plan để giữ lâu dài.
+
+services:
+  # ── MinIO (object storage) ───────────────────────────────────────────────
+  # Chạy từ image dựng sẵn + Render Disk mount tại /data để ảnh không mất khi redeploy.
+  # API S3 nghe ở :10000 (port web mặc định của Render) để Render route đúng cổng.
+  - type: web
+    name: lot-minio
+    runtime: image
+    image:
+      url: docker.io/minio/minio:latest
+    plan: starter          # bắt buộc trả phí vì có Disk.
+    region: singapore      # đổi nếu muốn (oregon/frankfurt/...). Để các service cùng region cho mạng nội bộ nhanh.
+    dockerCommand: minio server /data --address ":10000" --console-address ":9001"
+    healthCheckPath: /minio/health/live
+    disk:
+      name: minio-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      # Đặt giống hệt MINIO_ACCESS_KEY / MINIO_SECRET_KEY bên lot-backend.
+      - key: MINIO_ROOT_USER
+        sync: false
+      - key: MINIO_ROOT_PASSWORD
+        sync: false
+
+  # ── Box counter (computer vision) ────────────────────────────────────────
+  - type: web
+    name: lot-box-counter
+    runtime: docker
+    rootDir: box-counter-service
+    dockerfilePath: ./Dockerfile
+    plan: free             # cảnh báo: torch/YOLO dễ OOM ở free, nâng "standard" nếu crash.
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: MODEL_PATH
+        value: /app/model/best.pt
+      - key: CONF_THRESHOLD
+        value: "0.5"
+
+  # ── Backend API (Go) ─────────────────────────────────────────────────────
+  - type: web
+    name: lot-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    envVars:
+      # DB: Render cấp sẵn chuỗi kết nối đầy đủ.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lot-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # MinIO: endpoint nội bộ (host:port) tự lấy từ service lot-minio — không cần scheme.
+      - key: MINIO_ENDPOINT
+        fromService:
+          type: web
+          name: lot-minio
+          property: hostport
+      - key: MINIO_USE_SSL
+        value: "false"      # mạng nội bộ Render là HTTP.
+      - key: MINIO_BUCKET
+        value: lot-images
+      # Phải khớp MINIO_ROOT_USER / MINIO_ROOT_PASSWORD ở lot-minio.
+      - key: MINIO_ACCESS_KEY
+        sync: false
+      - key: MINIO_SECRET_KEY
+        sync: false
+      # URL công khai của MinIO để dựng link ảnh cho trình duyệt, vd: https://lot-minio.onrender.com
+      - key: MINIO_PUBLIC_ENDPOINT
+        sync: false
+      # URL dịch vụ đếm box, vd: https://lot-box-counter.onrender.com
+      - key: BOX_COUNTER_URL
+        sync: false
+
+  # ── Frontend (Vite static site) ──────────────────────────────────────────
+  - type: web
+    name: lot-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      # URL backend + /api, vd: https://lot-backend.onrender.com/api
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # SPA: mọi đường dẫn rewrite về index.html cho react-router.
+      - type: rewrite
+        source: /*
+        destination: /index.html

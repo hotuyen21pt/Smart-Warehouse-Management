@@ -99,6 +99,9 @@ lots      – số lô (lot_number, manufacture_date, expiry_date, qty, branch)
 | POST | `/api/lots` | Thêm / cập nhật lô (upsert) |
 | PUT | `/api/lots/:id` | Cập nhật lô |
 | DELETE | `/api/lots/:id` | Xóa lô |
+| GET | `/api/lots/:id/images` | Danh sách ảnh của lô |
+| POST | `/api/lots/:id/images` | Tải ảnh lên lô (multipart, field `files`, nhiều file) |
+| DELETE | `/api/lots/:id/images/:imageId` | Xóa ảnh của lô |
 | GET | `/api/users` | Danh sách user (admin) |
 | POST | `/api/users` | Tạo user (admin) |
 | DELETE | `/api/users/:id` | Xóa user (admin) |
@@ -141,6 +144,24 @@ database:
 ```
 
 Có thể ghi đè bằng biến môi trường: `SERVER_PORT`, `JWT_SECRET`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (env > config.yaml > mặc định).
+
+### Lưu trữ ảnh (MinIO)
+
+Ảnh bằng chứng của lô được lưu trên MinIO (S3-compatible). Khối `storage` trong `config.yaml`:
+
+```yaml
+storage:
+  endpoint: localhost:9000          # endpoint nội bộ backend kết nối (docker: minio:9000)
+  public_endpoint: http://localhost:9000  # gốc URL trình duyệt tải ảnh
+  access_key: minioadmin
+  secret_key: minioadmin123
+  bucket: lot-images                # tự tạo + set policy public-read khi khởi động
+  use_ssl: false
+```
+
+Ghi đè bằng env: `MINIO_ENDPOINT`, `MINIO_PUBLIC_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_USE_SSL`.
+
+Khi chạy `docker compose up`, service `minio` được tạo sẵn — Console UI tại `http://localhost:9001` (user/pass `minioadmin` / `minioadmin123`), API S3 tại `:9000`. Backend tự tạo bucket và đặt quyền đọc public lúc khởi động.
 
 ## Chạy bằng Docker (MySQL + Backend)
 

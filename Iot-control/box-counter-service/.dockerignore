@@ -1,0 +1,6 @@
+# Model được bake vào image để deploy lên Render (xem Dockerfile).
+# Local vẫn mount đè qua volume trong docker-compose.
+__pycache__/
+*.pyc
+.venv/
+venv/

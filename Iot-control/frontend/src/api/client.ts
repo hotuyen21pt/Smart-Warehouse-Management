@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { User, SKU, Lot } from '../types'
+import type { User, SKU, Lot, LotImage, BoxCountResult } from '../types'
 
 // Khi build cho Render: đặt VITE_API_BASE_URL = https://<backend>.onrender.com/api
 // Khi dev local: bỏ trống -> dùng '/api' (vite proxy sang localhost:8080).
@@ -65,6 +65,34 @@ export const updateLot = (id: number, data: {
 
 export const deleteLot = (id: number) =>
   api.delete(`/lots/${id}`)
+
+// Ảnh của lô
+export const listLotImages = (lotId: number) =>
+  api.get<LotImage[]>(`/lots/${lotId}/images`).then((r) => r.data)
+
+export const uploadLotImages = (lotId: number, files: File[]) => {
+  const form = new FormData()
+  files.forEach((f) => form.append('files', f))
+  return api
+    .post<LotImage[]>(`/lots/${lotId}/images`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data)
+}
+
+export const deleteLotImage = (lotId: number, imageId: number) =>
+  api.delete(`/lots/${lotId}/images/${imageId}`)
+
+// Đếm số box trong ảnh bằng computer vision (không gắn với lô nào).
+export const countBoxes = (files: File[]) => {
+  const form = new FormData()
+  files.forEach((f) => form.append('files', f))
+  return api
+    .post<BoxCountResult>('/lots/count-boxes', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data)
+}
 
 // Users
 export const listUsers = () =>

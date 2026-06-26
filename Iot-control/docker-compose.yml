@@ -18,6 +18,44 @@ services:
       timeout: 5s
       retries: 20
 
+  minio:
+    image: minio/minio:latest
+    container_name: lot-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"        # API S3
+      - "9001:9001"        # Console web UI
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  box-counter:
+    build: ./box-counter-service
+    container_name: lot-box-counter
+    restart: unless-stopped
+    volumes:
+      # Model best.pt được mount (không nướng vào image) — train lại chỉ cần thay file + restart.
+      - ./box-counter-service/model:/app/model:ro
+    environment:
+      MODEL_PATH: /app/model/best.pt
+      CONF_THRESHOLD: "0.5"
+    ports:
+      - "8000:8000"        # backend chạy local gọi tới http://localhost:8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s   # YOLO load model mất vài chục giây lần đầu
+
   backend:
     build: ./backend
     container_name: lot-backend
@@ -31,11 +69,25 @@ services:
       DB_SSLMODE: disable
       SERVER_PORT: 8080
       JWT_SECRET: lot-control-secret-2024
+      # MinIO: endpoint nội bộ dùng tên service; public endpoint để trình duyệt tải ảnh.
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET: lot-images
+      MINIO_USE_SSL: "false"
+      # Dịch vụ đếm box (computer vision) — tên service trong mạng docker.
+      BOX_COUNTER_URL: http://box-counter:8000
     ports:
       - "8080:8080"        # frontend (npm run dev) proxy /api -> localhost:8080
     depends_on:
       db:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      box-counter:
+        condition: service_started   # không chặn backend chờ model load; đếm là on-demand
 
 volumes:
   pg_data:
+  minio_data:

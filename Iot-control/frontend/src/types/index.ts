@@ -31,4 +31,23 @@ export interface Lot {
   counted_by_name: string
   counted_at: string
   notes: string
+  images?: LotImage[]
+}
+
+export interface LotImage {
+  id: number
+  lot_id: number
+  url: string
+  created_at: string
+}
+
+export interface BoxCountItem {
+  filename: string
+  count: number
+  error?: string
+}
+
+export interface BoxCountResult {
+  total: number
+  per_image: BoxCountItem[]
 }

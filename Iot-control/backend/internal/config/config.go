@@ -25,6 +25,22 @@ type Config struct {
 		Name     string `yaml:"name"`
 		SSLMode  string `yaml:"sslmode"`
 	} `yaml:"database"`
+	Storage struct {
+		// Endpoint nội bộ để SDK kết nối MinIO (vd "minio:9000" trong docker, "localhost:9000" khi dev).
+		Endpoint string `yaml:"endpoint"`
+		// PublicEndpoint là gốc URL dùng để dựng link ảnh trả về cho client (vd "http://localhost:9000").
+		// Tách riêng vì endpoint nội bộ (tên service docker) thường không truy cập được từ trình duyệt.
+		PublicEndpoint string `yaml:"public_endpoint"`
+		AccessKey      string `yaml:"access_key"`
+		SecretKey      string `yaml:"secret_key"`
+		Bucket         string `yaml:"bucket"`
+		UseSSL         bool   `yaml:"use_ssl"`
+	} `yaml:"storage"`
+	BoxCounter struct {
+		// URL gốc của dịch vụ đếm box (vd "http://box-counter:8000").
+		// Rỗng = tắt tính năng đếm tự động.
+		URL string `yaml:"url"`
+	} `yaml:"box_counter"`
 }
 
 // DatabaseDSN trả về DSN cho GORM PostgreSQL.
@@ -92,6 +108,29 @@ func Load(path string) (*Config, error) {
 	if v := os.Getenv("DB_SSLMODE"); v != "" {
 		cfg.Database.SSLMode = v
 	}
+	// MinIO / object storage — ghi đè bằng env (dùng cho Docker/Render).
+	if v := os.Getenv("MINIO_ENDPOINT"); v != "" {
+		cfg.Storage.Endpoint = v
+	}
+	if v := os.Getenv("MINIO_PUBLIC_ENDPOINT"); v != "" {
+		cfg.Storage.PublicEndpoint = v
+	}
+	if v := os.Getenv("MINIO_ACCESS_KEY"); v != "" {
+		cfg.Storage.AccessKey = v
+	}
+	if v, ok := os.LookupEnv("MINIO_SECRET_KEY"); ok {
+		cfg.Storage.SecretKey = v
+	}
+	if v := os.Getenv("MINIO_BUCKET"); v != "" {
+		cfg.Storage.Bucket = v
+	}
+	if v := os.Getenv("MINIO_USE_SSL"); v != "" {
+		cfg.Storage.UseSSL = v == "true" || v == "1"
+	}
+	// Dịch vụ đếm box (computer vision) — ghi đè bằng env.
+	if v := os.Getenv("BOX_COUNTER_URL"); v != "" {
+		cfg.BoxCounter.URL = v
+	}
 
 	// Giá trị mặc định.
 	if cfg.Server.Port == 0 {
@@ -114,6 +153,26 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Database.SSLMode == "" {
 		cfg.Database.SSLMode = "disable"
+	}
+	if cfg.Storage.Endpoint == "" {
+		cfg.Storage.Endpoint = "localhost:9000"
+	}
+	if cfg.Storage.PublicEndpoint == "" {
+		// Mặc định dựng từ endpoint nội bộ (phù hợp khi chạy local).
+		scheme := "http"
+		if cfg.Storage.UseSSL {
+			scheme = "https"
+		}
+		cfg.Storage.PublicEndpoint = scheme + "://" + cfg.Storage.Endpoint
+	}
+	if cfg.Storage.AccessKey == "" {
+		cfg.Storage.AccessKey = "minioadmin"
+	}
+	if cfg.Storage.SecretKey == "" {
+		cfg.Storage.SecretKey = "minioadmin123"
+	}
+	if cfg.Storage.Bucket == "" {
+		cfg.Storage.Bucket = "lot-images"
 	}
 
 	return &cfg, nil

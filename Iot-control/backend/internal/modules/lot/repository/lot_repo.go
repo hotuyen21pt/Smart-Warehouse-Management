@@ -19,6 +19,13 @@ type ILotRepository interface {
 	Update(id int64, fields map[string]interface{}) error
 	GetByID(id int64) (*models.Lot, error)
 	Delete(id int64) error
+
+	// Ảnh của lô.
+	LotExists(lotID int64) (bool, error)
+	CreateImage(img *models.LotImage) error
+	ListImagesByLot(lotID int64) ([]models.LotImage, error)
+	GetImageByID(imageID int64) (*models.LotImage, error)
+	DeleteImage(imageID int64) error
 }
 
 type lotRepository struct {

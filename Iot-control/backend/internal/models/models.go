@@ -41,9 +41,21 @@ type Lot struct {
 	CountedByName   string    `json:"counted_by_name" gorm:"-"`
 	CountedAt       time.Time `json:"counted_at" gorm:"column:counted_at"`
 	Notes           string    `json:"notes" gorm:"column:notes;size:1000;not null;default:''"`
+	Images          []LotImage `json:"images,omitempty" gorm:"-"`
 }
 
 func (Lot) TableName() string { return "lots" }
+
+// LotImage là ảnh bằng chứng gắn với một lô (1 lô có nhiều ảnh).
+type LotImage struct {
+	ID        int64     `json:"id" gorm:"primaryKey"`
+	LotID     int64     `json:"lot_id" gorm:"column:lot_id;not null;index"`
+	ObjectKey string    `json:"-" gorm:"column:object_key;size:500;not null"`
+	URL       string    `json:"url" gorm:"column:url;size:1000;not null"`
+	CreatedAt time.Time `json:"created_at" gorm:"column:created_at"`
+}
+
+func (LotImage) TableName() string { return "lot_images" }
 
 // Claims là payload JWT, được AuthMiddleware nạp vào gin.Context.
 type Claims struct {

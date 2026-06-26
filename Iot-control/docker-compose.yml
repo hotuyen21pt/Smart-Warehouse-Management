@@ -47,6 +47,8 @@ services:
     environment:
       MODEL_PATH: /app/model/best.pt
       CONF_THRESHOLD: "0.5"
+      # Tên lớp tính là "thùng" — model train ra gán thùng vào lớp "-".
+      BOX_CLASS_NAME: "-"
     ports:
       - "8000:8000"        # backend chạy local gọi tới http://localhost:8000
     healthcheck:

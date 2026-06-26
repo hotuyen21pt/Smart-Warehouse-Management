@@ -59,6 +59,10 @@ services:
         value: /app/model/best.pt
       - key: CONF_THRESHOLD
         value: "0.5"
+      # Tên lớp tính là "thùng". Model train ra gán thùng vào lớp "-"
+      # (xem output notebook). Kiểm tra lại bằng GET /health > field classes.
+      - key: BOX_CLASS_NAME
+        value: "-"
 
   # ── Backend API (Go) ─────────────────────────────────────────────────────
   - type: web

@@ -46,7 +46,17 @@ services:
       - ./box-counter-service/model:/app/model:ro
     environment:
       MODEL_PATH: /app/model/best.pt
-      CONF_THRESHOLD: "0.5"
+      CONF_THRESHOLD: "0.25"
+      # Kích thước ảnh suy luận (960/1280) — lớn hơn bắt được box nhỏ, chậm hơn.
+      IMGSZ: "1280"
+      # IoU cho NMS — 0.6 giữ được nhiều box xếp sát nhau.
+      IOU_THRESHOLD: "0.6"
+      # Lọc box quá nhỏ theo % diện tích ảnh — bỏ vật ở xa / nhận nhầm. Đặt 0 để tắt.
+      MIN_BOX_AREA_PCT: "0.5"
+      # Tiền xử lý ảnh đầu vào.
+      PREPROCESS_EXIF: "true"          # sửa hướng ảnh điện thoại (nên bật)
+      PREPROCESS_AUTOCONTRAST: "true"  # cân bằng sáng/tương phản
+      PREPROCESS_SHARPEN: "false"      # làm nét (bật nếu ảnh hay mờ)
       # Tên lớp tính là "thùng" — model train ra gán thùng vào lớp "-".
       BOX_CLASS_NAME: "-"
     ports:

@@ -52,6 +52,8 @@ type LotImage struct {
 	LotID     int64     `json:"lot_id" gorm:"column:lot_id;not null;index"`
 	ObjectKey string    `json:"-" gorm:"column:object_key;size:500;not null"`
 	URL       string    `json:"url" gorm:"column:url;size:1000;not null"`
+	// Count là số box đếm được trên chính ảnh này (để khi xóa ảnh thì trừ đúng số đã cộng).
+	Count     int       `json:"count" gorm:"column:count;not null;default:0"`
 	CreatedAt time.Time `json:"created_at" gorm:"column:created_at"`
 }
 

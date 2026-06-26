@@ -190,4 +190,6 @@ C:\Users\User1\Desktop\work\work\Iot-control\box-counter-service\model\best.pt
 git add box-counter-service/model/best.pt
 git commit -m "Update YOLO weights"
 git push
-3. Local thì: docker compose build box-counter rồi docker compose up -d box-counte
+3. Local thì: docker compose build box-counter rồi docker compose up -d box-counter
+
+docker compose up -d --build box-counter

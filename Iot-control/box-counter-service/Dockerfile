@@ -18,7 +18,7 @@ COPY app.py .
 COPY model/ ./model/
 
 ENV MODEL_PATH=/app/model/best.pt \
-    CONF_THRESHOLD=0.5
+    CONF_THRESHOLD=0.25
 
 EXPOSE 8000
 

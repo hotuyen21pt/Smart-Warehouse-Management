@@ -70,9 +70,13 @@ export const deleteLot = (id: number) =>
 export const listLotImages = (lotId: number) =>
   api.get<LotImage[]>(`/lots/${lotId}/images`).then((r) => r.data)
 
-export const uploadLotImages = (lotId: number, files: File[]) => {
+export const uploadLotImages = (lotId: number, files: File[], counts?: number[]) => {
   const form = new FormData()
-  files.forEach((f) => form.append('files', f))
+  files.forEach((f, i) => {
+    form.append('files', f)
+    // counts đi song song với files theo thứ tự để backend lưu số box từng ảnh.
+    form.append('counts', String(counts?.[i] ?? 0))
+  })
   return api
     .post<LotImage[]>(`/lots/${lotId}/images`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },

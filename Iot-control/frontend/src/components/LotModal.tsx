@@ -36,7 +36,8 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
   // Ảnh đã lưu trên server (chế độ sửa).
   const [images, setImages] = useState<LotImage[]>([])
   // Ảnh chọn tạm khi tạo lô mới (chưa có lot.id) — sẽ upload sau khi tạo.
-  const [pending, setPending] = useState<{ file: File; url: string }[]>([])
+  // count: số box đếm được trên ảnh, để khi bỏ ảnh thì trừ lại khỏi Số lượng.
+  const [pending, setPending] = useState<{ file: File; url: string; count: number }[]>([])
   const [uploading, setUploading] = useState(false)
   const [imgError, setImgError] = useState('')
   // Trạng thái đếm box tự động.
@@ -62,17 +63,20 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
     if (cameraInputRef.current) cameraInputRef.current.value = ''
   }
 
-  // runCount gọi dịch vụ đếm box và CỘNG DỒN kết quả vào ô Số lượng.
-  const runCount = async (files: File[]) => {
+  // runCount gọi dịch vụ đếm box, CỘNG DỒN tổng vào ô Số lượng,
+  // và trả về số box của TỪNG ảnh (theo đúng thứ tự files) để lưu kèm ảnh.
+  const runCount = async (files: File[]): Promise<number[]> => {
     setCounting(true)
     setCountMsg('Đang đếm box…')
     try {
       const res = await countBoxes(files)
       setForm((prev) => ({ ...prev, qty: Number(prev.qty || 0) + res.total }))
       setCountMsg(`Đã đếm: +${res.total} box`)
+      return files.map((_, i) => res.per_image?.[i]?.count ?? 0)
     } catch (err: any) {
       setCountMsg('')
       setImgError(err?.response?.data?.error || 'Đếm box thất bại')
+      return files.map(() => 0)
     } finally {
       setCounting(false)
     }
@@ -85,18 +89,22 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
       return
     }
     setImgError('')
+    resetInputs()
+
+    // Đếm trước để biết số box từng ảnh (đồng thời cộng tổng vào Số lượng).
+    const counts = await runCount(files)
 
     if (!isEdit || !lot?.id) {
-      // Tạo lô mới: chưa có lot.id, giữ ảnh trong bộ nhớ để upload sau khi lưu.
+      // Tạo lô mới: chưa có lot.id, giữ ảnh kèm count trong bộ nhớ để upload sau khi lưu.
       setPending((prev) => [
         ...prev,
-        ...files.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
+        ...files.map((f, i) => ({ file: f, url: URL.createObjectURL(f), count: counts[i] ?? 0 })),
       ])
     } else {
-      // Sửa lô: upload ngay lên server.
+      // Sửa lô: upload ngay lên server kèm count từng ảnh.
       setUploading(true)
       try {
-        const created = await uploadLotImages(lot.id, files)
+        const created = await uploadLotImages(lot.id, files, counts)
         setImages((prev) => [...prev, ...created])
       } catch (err: any) {
         setImgError(err?.response?.data?.error || 'Tải ảnh thất bại')
@@ -104,26 +112,28 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
         setUploading(false)
       }
     }
-    resetInputs()
-
-    // Đếm box trên các ảnh vừa chọn và cộng vào số lượng.
-    await runCount(files)
   }
 
   const handleRemovePending = (index: number) => {
-    setPending((prev) => {
-      const next = prev.filter((_, i) => i !== index)
-      URL.revokeObjectURL(prev[index].url)
-      return next
-    })
+    const removed = pending[index]
+    if (!removed) return
+    URL.revokeObjectURL(removed.url)
+    setPending((prev) => prev.filter((_, i) => i !== index))
+    // Bỏ ảnh tạm thì trừ lại số box của ảnh đó khỏi Số lượng.
+    setForm((f) => ({ ...f, qty: Math.max(0, Number(f.qty || 0) - (removed.count || 0)) }))
   }
 
   const handleDeleteImage = async (imageId: number) => {
     if (!lot?.id) return
     setImgError('')
+    const target = images.find((img) => img.id === imageId)
     try {
       await deleteLotImage(lot.id, imageId)
       setImages((prev) => prev.filter((img) => img.id !== imageId))
+      // Xóa ảnh thì trừ lại số box của ảnh đó khỏi Số lượng.
+      if (target) {
+        setForm((f) => ({ ...f, qty: Math.max(0, Number(f.qty || 0) - (target.count || 0)) }))
+      }
     } catch (err: any) {
       setImgError(err?.response?.data?.error || 'Xóa ảnh thất bại')
     }
@@ -154,7 +164,7 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
         // Upload các ảnh đã chọn tạm sau khi lô được tạo.
         if (pending.length > 0 && newLot?.id) {
           try {
-            await uploadLotImages(newLot.id, pending.map((p) => p.file))
+            await uploadLotImages(newLot.id, pending.map((p) => p.file), pending.map((p) => p.count))
           } catch {
             setImgError('Lô đã được lưu nhưng tải ảnh thất bại')
           }
@@ -242,8 +252,8 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
                       src={img.url}
                       alt="Ảnh lô"
                       style={{
-                        width: 80,
-                        height: 80,
+                        width: 120,
+                        height: 120,
                         objectFit: 'cover',
                         borderRadius: 8,
                         border: '1px solid var(--gray-200, #ddd)',
@@ -280,8 +290,8 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
                     src={p.url}
                     alt="Ảnh chờ tải lên"
                     style={{
-                      width: 80,
-                      height: 80,
+                      width: 120,
+                      height: 120,
                       objectFit: 'cover',
                       borderRadius: 8,
                       border: '1px dashed var(--primary, #2563eb)',

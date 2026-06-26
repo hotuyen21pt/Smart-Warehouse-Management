@@ -60,7 +60,23 @@ services:
       - key: MODEL_PATH
         value: /app/model/best.pt
       - key: CONF_THRESHOLD
+        value: "0.25"
+      # Kích thước ảnh suy luận (960/1280) — lớn hơn bắt được box nhỏ, chậm hơn.
+      - key: IMGSZ
+        value: "1280"
+      # IoU cho NMS — 0.6 giữ được nhiều box xếp sát nhau.
+      - key: IOU_THRESHOLD
+        value: "0.6"
+      # Lọc box quá nhỏ theo % diện tích ảnh — bỏ vật ở xa / nhận nhầm. Đặt 0 để tắt.
+      - key: MIN_BOX_AREA_PCT
         value: "0.5"
+      # Tiền xử lý ảnh đầu vào.
+      - key: PREPROCESS_EXIF          # sửa hướng ảnh điện thoại (nên bật)
+        value: "true"
+      - key: PREPROCESS_AUTOCONTRAST  # cân bằng sáng/tương phản
+        value: "true"
+      - key: PREPROCESS_SHARPEN       # làm nét (bật nếu ảnh hay mờ)
+        value: "false"
       # Model train ra gán thùng vào lớp "-" (xem output notebook).
       # Xác nhận lại bằng GET /health > field classes.
       - key: BOX_CLASS_NAME

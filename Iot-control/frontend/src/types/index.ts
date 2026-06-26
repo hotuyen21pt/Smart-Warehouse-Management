@@ -38,6 +38,7 @@ export interface LotImage {
   id: number
   lot_id: number
   url: string
+  count: number
   created_at: string
 }
 

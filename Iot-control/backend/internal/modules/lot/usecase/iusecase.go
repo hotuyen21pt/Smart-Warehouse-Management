@@ -16,7 +16,7 @@ type IUseCase interface {
 
 	// Ảnh của lô.
 	ListImages(ctx context.Context, lotID int64) ([]models.LotImage, error)
-	UploadImages(ctx context.Context, lotID int64, files []*multipart.FileHeader) ([]models.LotImage, error)
+	UploadImages(ctx context.Context, lotID int64, files []*multipart.FileHeader, counts []int) ([]models.LotImage, error)
 	DeleteImage(ctx context.Context, lotID, imageID int64) error
 
 	// Đếm box bằng computer vision.

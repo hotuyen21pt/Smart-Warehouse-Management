@@ -102,7 +102,7 @@ export default function BoxReviewModal({ file, initialBoxes, index, total, onCon
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 'min(1100px, 95vw)', width: '95vw' }}>
         <button type="button" className="modal-close" onClick={onCancel} aria-label="Đóng">✕</button>
         <div className="modal-header modal-header-icon">
           <span className="modal-icon">🔲</span>
@@ -132,7 +132,7 @@ export default function BoxReviewModal({ file, initialBoxes, index, total, onCon
               const el = imgRef.current
               if (el) setSize({ w: el.clientWidth, h: el.clientHeight })
             }}
-            style={{ maxWidth: '100%', maxHeight: '60vh', display: 'block', borderRadius: 8 }}
+            style={{ maxWidth: '100%', maxHeight: '80vh', display: 'block', borderRadius: 8 }}
             draggable={false}
           />
           <svg

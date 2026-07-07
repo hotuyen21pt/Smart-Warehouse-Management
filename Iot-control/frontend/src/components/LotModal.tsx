@@ -73,6 +73,20 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
   const [showCamera, setShowCamera] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // % tiến trình cho thao tác đang chạy (đếm box / tải ảnh); null = ẩn thanh.
+  const [progress, setProgress] = useState<number | null>(null)
+
+  // Ảnh vừa xoá còn trong cửa sổ Hoàn tác (5s). Xoá server bị hoãn gọi API tới
+  // khi hết giờ / bấm Lưu / đóng modal; xoá pending hoãn revoke URL.
+  type PendingImg = { file: File; url: string; count: number; boxes: DetBox[]; edited: boolean }
+  type UndoItem =
+    | { kind: 'pending'; item: PendingImg; index: number }
+    | { kind: 'server'; image: LotImage; edit?: { boxes: DetBox[]; edited: boolean } }
+  const [undoItem, setUndoItem] = useState<UndoItem | null>(null)
+  const undoItemRef = useRef<UndoItem | null>(null)
+  undoItemRef.current = undoItem
+  const undoTimerRef = useRef<number | null>(null)
+
   // Giải phóng các object URL còn lại khi đóng modal (cả ảnh pending lẫn hàng đợi
   // review chưa xử lý xong). Revoke trùng là vô hại (no-op).
   const pendingRef = useRef(pending)
@@ -83,6 +97,13 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
     () => () => {
       pendingRef.current.forEach((p) => URL.revokeObjectURL(p.url))
       reviewQueueRef.current.forEach((q) => URL.revokeObjectURL(q.url))
+      // Chốt thao tác xoá còn trong cửa sổ hoàn tác (không setState sau unmount).
+      if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current)
+      const it = undoItemRef.current
+      if (it) {
+        if (it.kind === 'pending') URL.revokeObjectURL(it.item.url)
+        else if (lot?.id) void deleteLotImage(lot.id, it.image.id).catch(() => {})
+      }
     },
     [],
   )
@@ -104,26 +125,36 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
     if (files.length === 0) return
     setImgError('')
 
-    // Đếm/phát hiện box, rồi mở hàng đợi xem lại để người dùng chỉnh tay.
+    // Đếm/phát hiện box theo từng ảnh để hiện tiến trình, rồi mở hàng đợi xem lại.
     setCounting(true)
-    setCountMsg('Đang phát hiện box…')
-    let res
+    setProgress(0)
+    const perImageBoxes: DetBox[][] = []
+    let total = 0
     try {
-      res = await countBoxes(files)
+      for (let i = 0; i < files.length; i++) {
+        setCountMsg(`Đang phát hiện box… ảnh ${i + 1}/${files.length}`)
+        const res = await countBoxes([files[i]])
+        const bxs = res.per_image?.[0]?.boxes ?? []
+        perImageBoxes.push(bxs)
+        total += res.total
+        setProgress(Math.round(((i + 1) / files.length) * 100))
+      }
     } catch (err: any) {
       setCountMsg('')
+      setProgress(null)
       setImgError(err?.response?.data?.error || 'Đếm box thất bại')
       setCounting(false)
       return
     }
     setCounting(false)
-    setCountMsg(`Đã phát hiện ${res.total} box — kiểm tra lại từng ảnh`)
+    setProgress(null)
+    setCountMsg(`Đã phát hiện ${total} box — kiểm tra lại từng ảnh`)
     setReviewResults([])
     setReviewIndex(0)
     setReviewQueue(
       files.map((f, i) => ({
         file: f,
-        boxes: res.per_image?.[i]?.boxes ?? [],
+        boxes: perImageBoxes[i] ?? [],
         url: URL.createObjectURL(f),
       })),
     )
@@ -221,43 +252,96 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
     setEditing(null)
   }
 
+  // Thực thi dứt điểm thao tác xoá đang chờ hoàn tác (hết giờ / trước khi xoá
+  // cái mới / khi Lưu / khi đóng modal): pending thì revoke URL, server thì gọi
+  // API xoá thật. Trả về Promise để nơi gọi có thể chờ (vd trước khi Lưu).
+  const finalizeUndo = async () => {
+    const it = undoItemRef.current
+    if (undoTimerRef.current) {
+      window.clearTimeout(undoTimerRef.current)
+      undoTimerRef.current = null
+    }
+    setUndoItem(null)
+    undoItemRef.current = null
+    if (!it) return
+    if (it.kind === 'pending') {
+      URL.revokeObjectURL(it.item.url)
+    } else if (lot?.id) {
+      try {
+        await deleteLotImage(lot.id, it.image.id)
+      } catch (err: any) {
+        setImgError(err?.response?.data?.error || 'Xóa ảnh thất bại')
+      }
+    }
+  }
+
+  // Bắt đầu cửa sổ hoàn tác 5s cho một thao tác xoá.
+  const startUndo = (it: UndoItem) => {
+    // Chốt thao tác xoá trước đó (nếu còn) rồi mới mở cửa sổ mới.
+    void finalizeUndo()
+    setUndoItem(it)
+    undoItemRef.current = it
+    undoTimerRef.current = window.setTimeout(() => void finalizeUndo(), 5000)
+  }
+
+  // Hoàn tác: khôi phục ảnh + cộng lại số lượng đã trừ.
+  const undoDelete = () => {
+    const it = undoItemRef.current
+    if (!it) return
+    if (undoTimerRef.current) {
+      window.clearTimeout(undoTimerRef.current)
+      undoTimerRef.current = null
+    }
+    if (it.kind === 'pending') {
+      setPending((prev) => {
+        const next = [...prev]
+        next.splice(Math.min(it.index, next.length), 0, it.item)
+        return next
+      })
+      setForm((f) => ({ ...f, qty: Number(f.qty || 0) + (it.item.count || 0) }))
+    } else {
+      setImages((prev) => [...prev, it.image].sort((a, b) => a.id - b.id))
+      if (it.edit) setServerEdits((prev) => ({ ...prev, [it.image.id]: it.edit! }))
+      setForm((f) => ({ ...f, qty: Number(f.qty || 0) + (it.image.count || 0) }))
+    }
+    setUndoItem(null)
+    undoItemRef.current = null
+  }
+
   const handleRemovePending = (index: number) => {
     const removed = pending[index]
     if (!removed) return
-    URL.revokeObjectURL(removed.url)
     setPending((prev) => prev.filter((_, i) => i !== index))
     // Bỏ ảnh tạm thì trừ lại số box của ảnh đó khỏi Số lượng.
     setForm((f) => ({ ...f, qty: Math.max(0, Number(f.qty || 0) - (removed.count || 0)) }))
+    startUndo({ kind: 'pending', item: removed, index })
   }
 
-  const handleDeleteImage = async (imageId: number) => {
+  const handleDeleteImage = (imageId: number) => {
     if (!lot?.id) return
     setImgError('')
     const target = images.find((img) => img.id === imageId)
-    try {
-      // Backend xóa cả object ảnh lẫn file nhãn dataset gắn với ảnh.
-      await deleteLotImage(lot.id, imageId)
-      setImages((prev) => prev.filter((img) => img.id !== imageId))
-      // Bỏ luôn chỉnh sửa box đang chờ flush của ảnh này (nếu có).
+    if (!target) return
+    // Ẩn khỏi UI ngay; API xoá thật bị hoãn để còn hoàn tác.
+    const savedEdit = serverEdits[imageId]
+    setImages((prev) => prev.filter((img) => img.id !== imageId))
+    if (imageId in serverEdits) {
       setServerEdits((prev) => {
-        if (!(imageId in prev)) return prev
         const next = { ...prev }
         delete next[imageId]
         return next
       })
-      // Xóa ảnh thì trừ lại số box của ảnh đó khỏi Số lượng.
-      if (target) {
-        setForm((f) => ({ ...f, qty: Math.max(0, Number(f.qty || 0) - (target.count || 0)) }))
-      }
-    } catch (err: any) {
-      setImgError(err?.response?.data?.error || 'Xóa ảnh thất bại')
     }
+    setForm((f) => ({ ...f, qty: Math.max(0, Number(f.qty || 0) - (target.count || 0)) }))
+    startUndo({ kind: 'server', image: target, edit: savedEdit })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
+    // Chốt thao tác xoá còn đang chờ hoàn tác (thực hiện API xoá server nếu có).
+    await finalizeUndo()
     try {
       if (isEdit) {
         await updateLot(lot.id, {
@@ -277,11 +361,13 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
         setServerEdits({})
         // Upload các ảnh mới chọn tạm (kèm nhãn dataset cho ảnh chỉnh tay).
         if (pending.length > 0) {
+          setProgress(0)
           try {
-            await uploadLotImages(lot.id, pending)
+            await uploadLotImages(lot.id, pending, setProgress)
           } catch {
             setImgError('Lô đã được lưu nhưng tải ảnh thất bại')
           }
+          setProgress(null)
           pending.forEach((p) => URL.revokeObjectURL(p.url))
           setPending([])
         }
@@ -297,11 +383,13 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
         })
         // Upload các ảnh đã chọn tạm sau khi lô được tạo (kèm nhãn dataset).
         if (pending.length > 0 && newLot?.id) {
+          setProgress(0)
           try {
-            await uploadLotImages(newLot.id, pending)
+            await uploadLotImages(newLot.id, pending, setProgress)
           } catch {
             setImgError('Lô đã được lưu nhưng tải ảnh thất bại')
           }
+          setProgress(null)
           pending.forEach((p) => URL.revokeObjectURL(p.url))
           setPending([])
         }
@@ -513,6 +601,47 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
               >
                 {countMsg}
               </small>
+            )}
+            {progress !== null && (
+              <div
+                aria-label="Tiến trình"
+                style={{
+                  marginTop: '0.35rem',
+                  height: 6,
+                  borderRadius: 999,
+                  background: 'var(--gray-200, #e5e7eb)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${progress}%`,
+                    height: '100%',
+                    background: 'var(--primary, #2563eb)',
+                    transition: 'width 0.2s ease',
+                  }}
+                />
+              </div>
+            )}
+            {undoItem && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  marginTop: '0.5rem',
+                  padding: '0.4rem 0.6rem',
+                  borderRadius: 8,
+                  background: 'var(--gray-100, #f3f4f6)',
+                  fontSize: '0.8rem',
+                }}
+              >
+                <span>🗑️ Đã xoá ảnh</span>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={undoDelete}>
+                  ↩ Hoàn tác
+                </button>
+              </div>
             )}
           </div>
 

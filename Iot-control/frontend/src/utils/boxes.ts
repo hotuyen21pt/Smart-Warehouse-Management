@@ -30,22 +30,41 @@ export const iou = (a: DetBox, b: DetBox): number => {
 // diện tích của box NHỎ hơn (tức chồng > 0.25 diện tích khung gần đó).
 export const OVERLAP_RATIO = 0.25
 
-// Dọn kết quả detect: (1) bỏ box có diện tích < nửa diện tích trung bình các box
-// detect được, (2) khử box chồng nhau > OVERLAP_RATIO diện tích của khung gần đó
-// (giữ box lớn hơn) — không còn cặp box nào chồng lên nhau quá ngưỡng.
-export const cleanupDetections = (raw: DetBox[]): DetBox[] => {
+// Thống kê quá trình dọn: box giữ lại + số box bị lọc theo từng lý do.
+export interface CleanupStats {
+  boxes: DetBox[]
+  removedSmall: number   // số box bị bỏ vì diện tích quá nhỏ
+  removedOverlap: number // số box bị bỏ vì chồng box khác
+}
+
+// Dọn kết quả detect và trả kèm thống kê: (1) bỏ box có diện tích < nửa diện tích
+// trung bình các box detect được, (2) khử box chồng nhau > OVERLAP_RATIO diện tích
+// của khung nhỏ hơn (giữ box lớn hơn) — không còn cặp box nào chồng quá ngưỡng.
+export const cleanupWithStats = (raw: DetBox[]): CleanupStats => {
   const normed = raw.map(normalize)
-  if (normed.length === 0) return normed
+  if (normed.length === 0) return { boxes: normed, removedSmall: 0, removedOverlap: 0 }
   const avgArea = normed.reduce((s, b) => s + area(b), 0) / normed.length
   const minArea = avgArea / 2
   const kept: DetBox[] = []
+  let removedSmall = 0
+  let removedOverlap = 0
   // Duyệt từ box lớn đến nhỏ: giữ box không quá nhỏ và không chồng > ngưỡng.
   for (const b of [...normed].sort((p, q) => area(q) - area(p))) {
-    if (area(b) < minArea) continue
+    if (area(b) < minArea) {
+      removedSmall++
+      continue
+    }
     const overlaps = kept.some(
       (k) => interArea(b, k) >= OVERLAP_RATIO * Math.min(area(b), area(k)),
     )
-    if (!overlaps) kept.push(b)
+    if (overlaps) {
+      removedOverlap++
+      continue
+    }
+    kept.push(b)
   }
-  return kept
+  return { boxes: kept, removedSmall, removedOverlap }
 }
+
+// Chỉ lấy danh sách box đã dọn (bỏ qua thống kê).
+export const cleanupDetections = (raw: DetBox[]): DetBox[] => cleanupWithStats(raw).boxes

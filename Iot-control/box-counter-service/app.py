@@ -6,6 +6,7 @@ lượng object thuộc lớp "box" phát hiện được trên từng ảnh và
 
 import io
 import os
+import math
 import logging
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -33,6 +34,72 @@ IOU_THRESHOLD = float(os.getenv("IOU_THRESHOLD", "0.7"))
 # Ví dụ 0.5 = bỏ box chiếm dưới 0.5% diện tích ảnh. Đặt 0 để tắt lọc.
 MIN_BOX_AREA_PCT = float(os.getenv("MIN_BOX_AREA_PCT", "0.3"))
 
+# ── Soft-NMS: giảm đếm trùng ở cảnh box xếp khít ───────────────────────────
+# Thay vì loại thẳng box chồng nhau (hard-NMS), soft-NMS GIẢM DẦN điểm tin cậy
+# của box chồng theo mức độ chồng: score *= exp(-iou^2 / sigma). Box thật (chồng
+# ít) vẫn giữ điểm cao; box trùng (chồng nhiều) bị hạ điểm và rơi dưới ngưỡng.
+SOFT_NMS = _env_bool("SOFT_NMS", True)
+# Sigma càng nhỏ càng phạt mạnh box chồng (0.5 là mức thường dùng).
+SOFT_NMS_SIGMA = float(os.getenv("SOFT_NMS_SIGMA", "0.5"))
+# Khi bật soft-NMS: chạy model với NMS lỏng (iou cao) + ngưỡng conf thấp để giữ
+# nhiều ứng viên cho soft-NMS xử lý.
+SOFT_NMS_CAND_IOU = float(os.getenv("SOFT_NMS_CAND_IOU", "0.9"))
+SOFT_NMS_CAND_CONF = float(os.getenv("SOFT_NMS_CAND_CONF", "0.2"))
+
+# ── Ngưỡng conf theo kích thước box ────────────────────────────────────────
+# Box nhỏ (đặc trưng ít) dễ dương-tính-giả -> yêu cầu conf cao hơn; box lớn tin
+# cậy hơn -> hạ ngưỡng. Ngưỡng áp cho box giữa hai mốc là CONF_THRESHOLD.
+SIZE_AWARE_CONF = _env_bool("SIZE_AWARE_CONF", True)
+SMALL_AREA_PCT = float(os.getenv("SMALL_AREA_PCT", "1.0"))   # < mốc này = box nhỏ
+LARGE_AREA_PCT = float(os.getenv("LARGE_AREA_PCT", "5.0"))   # > mốc này = box lớn
+CONF_SMALL = float(os.getenv("CONF_SMALL", "0.6"))
+CONF_LARGE = float(os.getenv("CONF_LARGE", "0.4"))
+
+
+def _iou_px(a: tuple, b: tuple) -> float:
+    """IoU của 2 box dạng (x1, y1, x2, y2) theo pixel."""
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
+    iw = max(0.0, ix2 - ix1)
+    ih = max(0.0, iy2 - iy1)
+    inter = iw * ih
+    area_a = (a[2] - a[0]) * (a[3] - a[1])
+    area_b = (b[2] - b[0]) * (b[3] - b[1])
+    uni = area_a + area_b - inter
+    return inter / uni if uni > 0 else 0.0
+
+
+def _soft_nms(dets: list[dict], sigma: float, score_floor: float) -> list[dict]:
+    """Gaussian soft-NMS. dets: [{"box": (x1,y1,x2,y2), "conf": float}].
+
+    Lần lượt chọn box điểm cao nhất, hạ điểm các box còn lại theo độ chồng với
+    nó, loại box rơi dưới score_floor. Trả về các box giữ lại (điểm đã hiệu chỉnh).
+    """
+    pool = [dict(d) for d in dets]
+    kept: list[dict] = []
+    while pool:
+        m = max(range(len(pool)), key=lambda i: pool[i]["conf"])
+        best = pool.pop(m)
+        kept.append(best)
+        for d in pool:
+            ov = _iou_px(best["box"], d["box"])
+            d["conf"] *= math.exp(-(ov * ov) / sigma) if sigma > 0 else (0.0 if ov > 0 else 1.0)
+        pool = [d for d in pool if d["conf"] >= score_floor]
+    return kept
+
+
+def _min_conf_for_area(area_pct: float) -> float:
+    """Ngưỡng conf tối thiểu theo % diện tích box (khi bật SIZE_AWARE_CONF)."""
+    if not SIZE_AWARE_CONF:
+        return CONF_THRESHOLD
+    if area_pct < SMALL_AREA_PCT:
+        return CONF_SMALL
+    if area_pct > LARGE_AREA_PCT:
+        return CONF_LARGE
+    return CONF_THRESHOLD
+
 # ── Tiền xử lý ảnh đầu vào (giúp model đếm chính xác hơn) ──────────────────
 # Sửa hướng ảnh theo EXIF: ảnh chụp điện thoại hay bị xoay -> không sửa thì
 # model nhìn ảnh nằm ngang và đếm sai. Nên để bật.
@@ -57,8 +124,11 @@ model = YOLO(MODEL_PATH)
 CLASS_NAMES = model.names
 logger.info(
     "Đã load model. Các lớp: %s | conf=%.2f | imgsz=%d | iou=%.2f | min_area=%.2f%% "
+    "| soft_nms=%s(sigma=%.2f) | size_aware=%s(small<%.1f%%=%.2f, large>%.1f%%=%.2f) "
     "| exif=%s autocontrast=%s sharpen=%s",
     CLASS_NAMES, CONF_THRESHOLD, IMGSZ, IOU_THRESHOLD, MIN_BOX_AREA_PCT,
+    SOFT_NMS, SOFT_NMS_SIGMA,
+    SIZE_AWARE_CONF, SMALL_AREA_PCT, CONF_SMALL, LARGE_AREA_PCT, CONF_LARGE,
     PREPROCESS_EXIF, PREPROCESS_AUTOCONTRAST, PREPROCESS_SHARPEN,
 )
 
@@ -86,36 +156,58 @@ def detect_boxes(image: Image.Image) -> list[dict]:
     [{"x1", "y1", "x2", "y2", "conf"}]. Toạ độ chuẩn hoá giúp frontend vẽ
     đúng ở mọi độ phân giải và đổi thẳng sang định dạng YOLO khi lưu dataset.
     """
-    results = model.predict(
-        source=image,
-        conf=CONF_THRESHOLD,
-        imgsz=IMGSZ,
-        iou=IOU_THRESHOLD,
-        verbose=False,
-    )
     w = float(image.width)
     h = float(image.height)
     img_area = w * h
-    boxes: list[dict] = []
+    if w <= 0 or h <= 0:
+        return []
+
+    # Khi bật soft-NMS: chạy model với NMS lỏng + conf thấp để lấy nhiều ứng viên,
+    # rồi tự hạ điểm box chồng. Ngược lại dùng NMS chuẩn của YOLO như cũ.
+    results = model.predict(
+        source=image,
+        conf=SOFT_NMS_CAND_CONF if SOFT_NMS else CONF_THRESHOLD,
+        imgsz=IMGSZ,
+        iou=SOFT_NMS_CAND_IOU if SOFT_NMS else IOU_THRESHOLD,
+        verbose=False,
+    )
+
+    # Gom ứng viên thuộc lớp box (toạ độ pixel để tính IoU cho soft-NMS).
+    cands: list[dict] = []
     for r in results:
         for box in r.boxes:
             name = CLASS_NAMES[int(box.cls)].lower()
             if name != BOX_CLASS_NAME:
                 continue
-            # Lọc theo diện tích: bỏ qua box quá nhỏ (vật ở xa / nhận nhầm).
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0])
-            box_area = (x2 - x1) * (y2 - y1)
-            if img_area > 0 and (box_area / img_area) * 100 < MIN_BOX_AREA_PCT:
-                continue
-            if w <= 0 or h <= 0:
-                continue
-            boxes.append({
-                "x1": x1 / w,
-                "y1": y1 / h,
-                "x2": x2 / w,
-                "y2": y2 / h,
-                "conf": float(box.conf[0]) if box.conf is not None else 0.0,
-            })
+            conf = float(box.conf[0]) if box.conf is not None else 0.0
+            cands.append({"box": (x1, y1, x2, y2), "conf": conf})
+
+    # Soft-NMS: giảm điểm box chồng nhau. score_floor lấy ngưỡng thấp nhất có thể
+    # (theo kích thước) để không loại nhầm trước khi lọc tinh ở dưới.
+    if SOFT_NMS and cands:
+        floor = min(CONF_THRESHOLD, CONF_SMALL, CONF_LARGE) if SIZE_AWARE_CONF else CONF_THRESHOLD
+        cands = _soft_nms(cands, SOFT_NMS_SIGMA, floor)
+
+    boxes: list[dict] = []
+    for c in cands:
+        x1, y1, x2, y2 = c["box"]
+        conf = c["conf"]
+        box_area = (x2 - x1) * (y2 - y1)
+        area_pct = (box_area / img_area) * 100 if img_area > 0 else 0.0
+        # Lọc box quá nhỏ (vật ở xa / nhận nhầm).
+        if area_pct < MIN_BOX_AREA_PCT:
+            continue
+        # Ngưỡng conf theo kích thước (box nhỏ khắt khe hơn, box lớn dễ hơn).
+        if conf < _min_conf_for_area(area_pct):
+            continue
+        boxes.append({
+            "x1": x1 / w,
+            "y1": y1 / h,
+            "x2": x2 / w,
+            "y2": y2 / h,
+            "conf": conf,
+        })
     return boxes
 
 
@@ -128,6 +220,19 @@ def health():
         "imgsz": IMGSZ,
         "iou": IOU_THRESHOLD,
         "min_box_area_pct": MIN_BOX_AREA_PCT,
+        "soft_nms": {
+            "enabled": SOFT_NMS,
+            "sigma": SOFT_NMS_SIGMA,
+            "cand_iou": SOFT_NMS_CAND_IOU,
+            "cand_conf": SOFT_NMS_CAND_CONF,
+        },
+        "size_aware_conf": {
+            "enabled": SIZE_AWARE_CONF,
+            "small_area_pct": SMALL_AREA_PCT,
+            "conf_small": CONF_SMALL,
+            "large_area_pct": LARGE_AREA_PCT,
+            "conf_large": CONF_LARGE,
+        },
         "preprocess": {
             "exif": PREPROCESS_EXIF,
             "autocontrast": PREPROCESS_AUTOCONTRAST,

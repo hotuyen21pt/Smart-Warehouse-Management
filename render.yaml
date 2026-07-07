@@ -70,6 +70,26 @@ services:
       # Lọc box quá nhỏ theo % diện tích ảnh — bỏ vật ở xa / nhận nhầm. Đặt 0 để tắt.
       - key: MIN_BOX_AREA_PCT
         value: "0.3"
+      # Soft-NMS: giảm đếm trùng ở cảnh box xếp khít.
+      - key: SOFT_NMS
+        value: "true"
+      - key: SOFT_NMS_SIGMA
+        value: "0.5"
+      - key: SOFT_NMS_CAND_IOU
+        value: "0.9"
+      - key: SOFT_NMS_CAND_CONF
+        value: "0.2"
+      # Ngưỡng conf theo kích thước box (box nhỏ khắt khe hơn, box lớn dễ hơn).
+      - key: SIZE_AWARE_CONF
+        value: "true"
+      - key: SMALL_AREA_PCT
+        value: "1.0"
+      - key: LARGE_AREA_PCT
+        value: "5.0"
+      - key: CONF_SMALL
+        value: "0.6"
+      - key: CONF_LARGE
+        value: "0.4"
       # Tiền xử lý ảnh đầu vào.
       - key: PREPROCESS_EXIF           # sửa hướng ảnh điện thoại (nên bật)
         value: "true"

@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DetBox } from '../types'
 import { countBoxes } from '../api/client'
-import { area, cleanupDetections, interArea, normalize, OVERLAP_RATIO } from '../utils/boxes'
+import { area, cleanupWithStats, interArea, normalize, OVERLAP_RATIO } from '../utils/boxes'
+import type { CleanupStats } from '../utils/boxes'
 
 interface Props {
   src: string // URL ảnh để hiển thị (object URL của file mới hoặc URL ảnh server)
@@ -36,7 +37,20 @@ const CORNER_CURSOR: Record<Corner, string> = {
 }
 
 export default function BoxReviewModal({ src, initialBoxes, index, total, onConfirm, onCancel }: Props) {
-  const [boxes, setBoxes] = useState<DetBox[]>(() => cleanupDetections(initialBoxes))
+  // Dọn box lần đầu + giữ thống kê để báo cho người dùng số box bị lọc.
+  const statsRef = useRef<CleanupStats | null>(null)
+  if (!statsRef.current) statsRef.current = cleanupWithStats(initialBoxes)
+  const [boxes, setBoxes] = useState<DetBox[]>(() => statsRef.current!.boxes)
+  // Ref luôn giữ boxes hiện tại — tránh closure cũ trong undo/redo & phím tắt.
+  const boxesRef = useRef(boxes)
+  boxesRef.current = boxes
+  // Lịch sử undo/redo: mỗi phần tử là một snapshot mảng boxes trước thao tác.
+  const pastRef = useRef<DetBox[][]>([])
+  const futureRef = useRef<DetBox[][]>([])
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  // Snapshot trước khi bắt đầu kéo/đổi kích thước (commit khi thả).
+  const boxesBeforeRef = useRef<DetBox[] | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [draft, setDraft] = useState<DetBox | null>(null)
   // Chế độ thao tác: 'draw' = vẽ box mới; 'move' = chọn/di chuyển/đổi kích thước
@@ -153,6 +167,47 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
   }
   useEffect(() => () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current) }, [])
 
+  // Khi mở: báo số box đã tự lọc (nhỏ / chồng) để người dùng không bất ngờ.
+  useEffect(() => {
+    const { removedSmall, removedOverlap } = statsRef.current!
+    const total = removedSmall + removedOverlap
+    if (total > 0) {
+      const parts: string[] = []
+      if (removedSmall) parts.push(`${removedSmall} nhỏ`)
+      if (removedOverlap) parts.push(`${removedOverlap} chồng`)
+      flash(`Đã tự lọc ${total} box (${parts.join(', ')})`)
+    }
+  }, [])
+
+  // ── Undo / Redo ──────────────────────────────────────────────────────────
+  const syncHistoryFlags = () => {
+    setCanUndo(pastRef.current.length > 0)
+    setCanRedo(futureRef.current.length > 0)
+  }
+  // Ghi snapshot (trạng thái TRƯỚC thao tác) vào lịch sử, xoá nhánh redo.
+  const pushHistory = (snapshot: DetBox[]) => {
+    pastRef.current.push(snapshot)
+    if (pastRef.current.length > 50) pastRef.current.shift()
+    futureRef.current = []
+    syncHistoryFlags()
+  }
+  const undo = () => {
+    const prev = pastRef.current.pop()
+    if (prev === undefined) return
+    futureRef.current.push(boxesRef.current)
+    setBoxes(prev)
+    setSelected(null)
+    syncHistoryFlags()
+  }
+  const redo = () => {
+    const next = futureRef.current.pop()
+    if (next === undefined) return
+    pastRef.current.push(boxesRef.current)
+    setBoxes(next)
+    setSelected(null)
+    syncHistoryFlags()
+  }
+
   // Double-click vào một điểm (chuẩn hoá) → cắt vùng quanh đó (kích thước suy
   // từ box lân cận) và chạy lại model để bắt box bị bỏ sót, rồi gộp vào.
   const detectRegion = async (cx: number, cy: number) => {
@@ -240,6 +295,7 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
         if (!overlaps) fresh.push(m)
       }
       if (fresh.length) {
+        pushHistory(boxesRef.current)
         setBoxes((prev) => [...prev, ...fresh])
         flash(`Đã thêm ${fresh.length} box`)
       } else {
@@ -273,6 +329,7 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
     setSelected(i)
     ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
     const p = toNorm(e.clientX, e.clientY)
+    boxesBeforeRef.current = boxes // snapshot trước khi kéo
     dragRef.current = { index: i, startX: p.x, startY: p.y, orig: boxes[i] }
   }
 
@@ -280,6 +337,7 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
     if (selected === null) return
     e.stopPropagation()
     ;(e.currentTarget as Element).setPointerCapture(e.pointerId)
+    boxesBeforeRef.current = boxes // snapshot trước khi đổi kích thước
     resizeRef.current = { index: selected, corner, orig: boxes[selected] }
   }
 
@@ -327,6 +385,11 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
     panRef.current = null
     if (resizeRef.current) {
       resizeRef.current = null
+      // Chỉ ghi lịch sử nếu box thực sự đổi (bỏ qua click không kéo).
+      if (boxesBeforeRef.current && boxesBeforeRef.current !== boxesRef.current) {
+        pushHistory(boxesBeforeRef.current)
+      }
+      boxesBeforeRef.current = null
       return
     }
     if (drawingRef.current) {
@@ -334,17 +397,26 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
       if (draft) {
         const b = normalize(draft)
         if (b.x2 - b.x1 >= MIN_SIDE && b.y2 - b.y1 >= MIN_SIDE) {
+          pushHistory(boxesRef.current)
           setBoxes((prev) => [...prev, b])
         }
       }
       setDraft(null)
       return
     }
-    dragRef.current = null
+    if (dragRef.current) {
+      dragRef.current = null
+      // Chỉ ghi lịch sử nếu box thực sự đổi (bỏ qua click không kéo).
+      if (boxesBeforeRef.current && boxesBeforeRef.current !== boxesRef.current) {
+        pushHistory(boxesBeforeRef.current)
+      }
+      boxesBeforeRef.current = null
+    }
   }
 
   const removeSelected = () => {
     if (selected === null) return
+    pushHistory(boxesRef.current)
     setBoxes((prev) => prev.filter((_, i) => i !== selected))
     setSelected(null)
   }
@@ -352,6 +424,18 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
   // Phím tắt: Delete/Backspace xoá box đang chọn; Esc bỏ chọn hoặc đóng.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+Z = undo; Ctrl/Cmd+Shift+Z hoặc Ctrl+Y = redo.
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault()
+        redo()
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selected !== null) {
           e.preventDefault()
@@ -380,6 +464,18 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
 
   // Kích thước hiển thị theo màn hình (không đổi khi zoom) cho viền & nút góc.
   const s = (v: number) => v / view.zoom
+
+  // Màu viền/nền theo độ tin cậy: box chọn = đỏ; thủ công (không conf) = tím;
+  // conf thấp = đỏ cam, trung bình = cam, cao = xanh — giúp ưu tiên box cần sửa.
+  const boxColors = (b: DetBox, isSel: boolean) => {
+    if (isSel) return { stroke: '#dc2626', fill: 'rgba(220,38,38,0.18)' }
+    if (b.conf == null) return { stroke: '#7c3aed', fill: 'rgba(124,58,237,0.12)' }
+    if (b.conf < 0.5) return { stroke: '#ef4444', fill: 'rgba(239,68,68,0.12)' }
+    if (b.conf < 0.7) return { stroke: '#f59e0b', fill: 'rgba(245,158,11,0.14)' }
+    return { stroke: '#2563eb', fill: 'rgba(37,99,235,0.12)' }
+  }
+  const confLabel = (b: DetBox | undefined) =>
+    b == null ? '' : b.conf == null ? 'thủ công' : `${Math.round(b.conf * 100)}%`
   const cursor = mode === 'draw' ? 'crosshair' : mode === 'pan' ? (panRef.current ? 'grabbing' : 'grab') : 'default'
 
   const subtitle =
@@ -408,6 +504,9 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
               <button type="button" className={`btn btn-sm ${mode === 'pan' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => switchMode('pan')}>
                 🖐 Kéo ảnh
               </button>
+              <span style={{ width: 1, height: 20, background: 'var(--gray-300)', margin: '0 0.15rem' }} />
+              <button type="button" className="btn btn-sm btn-ghost" onClick={undo} disabled={!canUndo} aria-label="Hoàn tác (Ctrl+Z)" title="Hoàn tác (Ctrl+Z)">↶</button>
+              <button type="button" className="btn btn-sm btn-ghost" onClick={redo} disabled={!canRedo} aria-label="Làm lại (Ctrl+Shift+Z)" title="Làm lại (Ctrl+Shift+Z)">↷</button>
               <span style={{ width: 1, height: 20, background: 'var(--gray-300)', margin: '0 0.15rem' }} />
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => zoomByButton(1 / 1.25)} aria-label="Thu nhỏ">➖</button>
               <span style={{ fontSize: '0.8rem', minWidth: 44, textAlign: 'center', color: 'var(--gray-500)' }}>
@@ -476,6 +575,7 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
               {boxes.map((b, i) => {
                 const r = px(b)
                 const isSel = i === selected
+                const c = boxColors(b, isSel)
                 return (
                   <rect
                     key={i}
@@ -483,8 +583,8 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
                     y={r.y}
                     width={r.w}
                     height={r.h}
-                    fill={isSel ? 'rgba(220,38,38,0.18)' : 'rgba(37,99,235,0.12)'}
-                    stroke={isSel ? '#dc2626' : '#2563eb'}
+                    fill={c.fill}
+                    stroke={c.stroke}
                     strokeWidth={s(2)}
                     style={{ cursor: mode === 'move' ? 'move' : 'inherit', pointerEvents: mode === 'move' ? 'auto' : 'none' }}
                     onPointerDown={(e) => onBoxPointerDown(i, e)}
@@ -575,6 +675,11 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
         >
           <strong style={{ fontSize: '1rem' }}>
             Số box: <span style={{ color: 'var(--primary, #2563eb)' }}>{boxes.length}</span>
+            {selected !== null && boxes[selected] && (
+              <span style={{ marginLeft: '0.6rem', fontSize: '0.85rem', fontWeight: 400, color: 'var(--gray-500)' }}>
+                · Độ tin cậy: {confLabel(boxes[selected])}
+              </span>
+            )}
             {notice && (
               <span style={{ marginLeft: '0.6rem', fontSize: '0.85rem', fontWeight: 400, color: 'var(--gray-500)' }}>
                 {notice}

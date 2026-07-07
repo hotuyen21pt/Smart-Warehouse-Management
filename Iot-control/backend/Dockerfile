@@ -14,7 +14,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /lot-control .
 # --- Runtime stage ---
 FROM alpine:3.20
 WORKDIR /app
-RUN adduser -D -u 10001 app
+# tzdata: driver pgx gọi time.LoadLocation cho TimeZone trong DSN (Asia/Ho_Chi_Minh);
+# alpine không kèm sẵn dữ liệu múi giờ nên thiếu nó backend sẽ crash "unknown time zone".
+RUN apk add --no-cache tzdata && adduser -D -u 10001 app
 COPY --from=build /lot-control /app/lot-control
 USER app
 EXPOSE 8080

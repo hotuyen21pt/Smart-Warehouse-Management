@@ -9,6 +9,11 @@ interface Props {
 }
 
 // ─── Tham số nhận diện live + làm mượt ───────────────────────────────
+// Khung gửi để nhận diện live: khớp imgsz=960 của model (như upload full-res,
+// vì YOLO cũng thu ảnh upload về 960 trước khi detect) -> số box + conf lúc
+// ngắm sát với lúc chụp full-res. Gửi lớn hơn 960 chỉ tốn băng thông.
+const LIVE_MAX_DIM = 960
+const LIVE_QUALITY = 0.85
 const SEND_GAP = 250 // ms nghỉ giữa các lần gửi (throttle ~3-4 fps)
 const DIFF_THRESHOLD = 6 // ngưỡng đổi khung (0..255) để quyết định gửi
 const MATCH_DIST = 0.08 // khoảng cách tâm tối đa (chuẩn hoá) để coi là cùng box
@@ -171,7 +176,7 @@ export default function CameraCaptureModal({ onCapture, onClose }: Props) {
       const shouldSend =
         !prev || tracksRef.current.length === 0 || (sample != null && frameDiff(sample, prev) >= DIFF_THRESHOLD)
       if (shouldSend) {
-        const f = await grabFrame(640, 0.6)
+        const f = await grabFrame(LIVE_MAX_DIM, LIVE_QUALITY)
         if (f && active) {
           try {
             const res = await countBoxes([f])

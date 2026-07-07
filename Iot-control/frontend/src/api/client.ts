@@ -79,7 +79,11 @@ export interface LotImageUpload {
   edited: boolean
 }
 
-export const uploadLotImages = (lotId: number, items: LotImageUpload[]) => {
+export const uploadLotImages = (
+  lotId: number,
+  items: LotImageUpload[],
+  onProgress?: (pct: number) => void,
+) => {
   const form = new FormData()
   items.forEach((it) => {
     // files/counts/boxes/edited đi song song theo thứ tự để backend ghép cặp.
@@ -91,6 +95,9 @@ export const uploadLotImages = (lotId: number, items: LotImageUpload[]) => {
   return api
     .post<LotImage[]>(`/lots/${lotId}/images`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (onProgress && e.total) onProgress(Math.round((e.loaded / e.total) * 100))
+      },
     })
     .then((r) => r.data)
 }

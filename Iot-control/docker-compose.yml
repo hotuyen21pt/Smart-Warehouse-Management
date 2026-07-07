@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:16-alpine
+    # Debian-based (không dùng alpine) vì bản alpine thiếu tzdata đầy đủ,
+    # khiến DSN "TimeZone=Asia/Ho_Chi_Minh" bị lỗi "unknown time zone".
+    image: postgres:16
     container_name: lot-postgres
     restart: unless-stopped
     environment:
@@ -53,6 +55,17 @@ services:
       IOU_THRESHOLD: "0.7"
       # Lọc box quá nhỏ theo % diện tích ảnh — bỏ vật ở xa / nhận nhầm. Đặt 0 để tắt.
       MIN_BOX_AREA_PCT: "0.3"
+      # Soft-NMS: giảm đếm trùng ở cảnh box xếp khít (hạ điểm box chồng thay vì loại thẳng).
+      SOFT_NMS: "true"
+      SOFT_NMS_SIGMA: "0.5"             # nhỏ hơn = phạt mạnh box chồng
+      SOFT_NMS_CAND_IOU: "0.9"          # NMS lỏng khi gom ứng viên cho soft-NMS
+      SOFT_NMS_CAND_CONF: "0.2"         # ngưỡng conf thấp khi gom ứng viên
+      # Ngưỡng conf theo kích thước box (box nhỏ khắt khe hơn, box lớn dễ hơn).
+      SIZE_AWARE_CONF: "true"
+      SMALL_AREA_PCT: "1.0"             # box < 1% diện tích ảnh = nhỏ
+      LARGE_AREA_PCT: "5.0"             # box > 5% diện tích ảnh = lớn
+      CONF_SMALL: "0.6"
+      CONF_LARGE: "0.4"
       # Tiền xử lý ảnh đầu vào.
       PREPROCESS_EXIF: "true"           # sửa hướng ảnh điện thoại (nên bật)
       PREPROCESS_AUTOCONTRAST: "false"  # tắt cho ổn định; bật nếu ảnh thường tối

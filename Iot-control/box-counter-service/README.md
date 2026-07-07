@@ -45,6 +45,16 @@ Kiểm tra service và xem các lớp model nhận diện.
 |------------------|---------------------|-------------------------------------------|
 | `MODEL_PATH`     | `/app/model/best.pt`| Đường dẫn model trong container           |
 | `CONF_THRESHOLD` | `0.5`               | Ngưỡng tin cậy tối thiểu                   |
+| `IMGSZ`          | `960`               | Kích thước ảnh khi suy luận               |
+| `IOU_THRESHOLD`  | `0.7`               | IoU cho NMS (khi tắt soft-NMS)            |
+| `MIN_BOX_AREA_PCT`| `0.3`              | Bỏ box nhỏ hơn % diện tích ảnh này        |
+| `SOFT_NMS`       | `true`              | Bật soft-NMS: hạ điểm box chồng thay vì loại thẳng → giảm đếm trùng khi box xếp khít |
+| `SOFT_NMS_SIGMA` | `0.5`               | Nhỏ hơn = phạt mạnh box chồng             |
+| `SOFT_NMS_CAND_IOU`| `0.9`             | NMS lỏng khi gom ứng viên cho soft-NMS    |
+| `SOFT_NMS_CAND_CONF`| `0.2`            | Ngưỡng conf thấp khi gom ứng viên         |
+| `SIZE_AWARE_CONF`| `true`              | Bật ngưỡng conf theo kích thước box       |
+| `SMALL_AREA_PCT` / `CONF_SMALL` | `1.0` / `0.6` | Box < 1% diện tích cần conf ≥ 0.6 |
+| `LARGE_AREA_PCT` / `CONF_LARGE` | `5.0` / `0.4` | Box > 5% diện tích chỉ cần conf ≥ 0.4 |
 | `BOX_CLASS_NAME` | `box`               | Tên lớp được tính là "thùng"              |
 
 ## Chạy local (không Docker)

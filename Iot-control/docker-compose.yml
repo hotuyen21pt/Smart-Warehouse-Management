@@ -54,7 +54,8 @@ services:
       # IoU cho NMS — 0.7 (default YOLO) giữ được box xếp sát nhau.
       IOU_THRESHOLD: "0.7"
       # Lọc box quá nhỏ theo % diện tích ảnh — bỏ vật ở xa / nhận nhầm. Đặt 0 để tắt.
-      MIN_BOX_AREA_PCT: "0.3"
+      # 0 vì box trong dataset rất nhỏ (~0.18%-0.9% diện tích ảnh) — lọc 0.3 sẽ loại hết.
+      MIN_BOX_AREA_PCT: "0"
       # Soft-NMS: giảm đếm trùng ở cảnh box xếp khít (hạ điểm box chồng thay vì loại thẳng).
       SOFT_NMS: "true"
       SOFT_NMS_SIGMA: "0.5"             # nhỏ hơn = phạt mạnh box chồng
@@ -64,14 +65,14 @@ services:
       SIZE_AWARE_CONF: "true"
       SMALL_AREA_PCT: "1.0"             # box < 1% diện tích ảnh = nhỏ
       LARGE_AREA_PCT: "5.0"             # box > 5% diện tích ảnh = lớn
-      CONF_SMALL: "0.6"
+      CONF_SMALL: "0.25"             # box của dataset đều nhỏ (<1%) nên hạ ngưỡng conf
       CONF_LARGE: "0.4"
       # Tiền xử lý ảnh đầu vào.
       PREPROCESS_EXIF: "true"           # sửa hướng ảnh điện thoại (nên bật)
       PREPROCESS_AUTOCONTRAST: "false"  # tắt cho ổn định; bật nếu ảnh thường tối
       PREPROCESS_SHARPEN: "false"       # làm nét (bật nếu ảnh hay mờ)
-      # Tên lớp tính là "thùng" — model train ra gán thùng vào lớp "-".
-      BOX_CLASS_NAME: "-"
+      # Tên lớp tính là "thùng" — model 1 lớp mới train lại có names {0: 'box'}.
+      BOX_CLASS_NAME: "box"
     ports:
       - "8000:8000"        # backend chạy local gọi tới http://localhost:8000
     healthcheck:

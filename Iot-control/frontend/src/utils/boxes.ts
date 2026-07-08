@@ -30,6 +30,11 @@ export const iou = (a: DetBox, b: DetBox): number => {
 // diện tích của box NHỎ hơn (tức chồng > 0.25 diện tích khung gần đó).
 export const OVERLAP_RATIO = 0.25
 
+// Ngưỡng "bao ngoài": khung A coi là CHỨA khung B khi phần giao ≥ hệ số này ×
+// diện tích của B (tức ≥ 90% diện tích B nằm trong A). Khi đó A là khung bao
+// ngoài -> loại A, giữ B (khung bị chứa).
+export const CONTAIN_RATIO = 0.9
+
 // Thống kê quá trình dọn: box giữ lại + số box bị lọc theo từng lý do.
 export interface CleanupStats {
   boxes: DetBox[]
@@ -37,33 +42,36 @@ export interface CleanupStats {
   removedOverlap: number // số box bị bỏ vì chồng box khác
 }
 
-// Dọn kết quả detect và trả kèm thống kê: (1) bỏ box có diện tích < nửa diện tích
-// trung bình các box detect được, (2) khử box chồng nhau > OVERLAP_RATIO diện tích
-// của khung nhỏ hơn (giữ box lớn hơn) — không còn cặp box nào chồng quá ngưỡng.
+// Lọc sau khi đã detect hết: nếu một khung CHỨA ≥ CONTAIN_RATIO (90%) diện tích
+// của khung khác thì nó là khung bao ngoài -> LOẠI khung chứa, GIỮ khung bị chứa.
+// Chỉ loại khung lớn hơn; nếu hai khung trùng khít (diện tích bằng nhau) thì loại
+// khung xuất hiện sau để không mất cả hai.
 export const cleanupWithStats = (raw: DetBox[]): CleanupStats => {
   const normed = raw.map(normalize)
-  if (normed.length === 0) return { boxes: normed, removedSmall: 0, removedOverlap: 0 }
-  const avgArea = normed.reduce((s, b) => s + area(b), 0) / normed.length
-  const minArea = avgArea / 2
-  const kept: DetBox[] = []
-  let removedSmall = 0
-  let removedOverlap = 0
-  // Duyệt từ box lớn đến nhỏ: giữ box không quá nhỏ và không chồng > ngưỡng.
-  for (const b of [...normed].sort((p, q) => area(q) - area(p))) {
-    if (area(b) < minArea) {
-      removedSmall++
-      continue
+  const n = normed.length
+  if (n === 0) return { boxes: normed, removedSmall: 0, removedOverlap: 0 }
+  const remove = new Array<boolean>(n).fill(false)
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (i === j) continue
+      // i chứa ≥90% diện tích của j?
+      if (interArea(normed[i], normed[j]) < CONTAIN_RATIO * area(normed[j])) continue
+      const ai = area(normed[i])
+      const aj = area(normed[j])
+      // Loại khung bao ngoài (lớn hơn); nếu bằng nhau, loại khung index lớn hơn.
+      if (ai > aj || (ai === aj && i > j)) {
+        remove[i] = true
+        break
+      }
     }
-    const overlaps = kept.some(
-      (k) => interArea(b, k) >= OVERLAP_RATIO * Math.min(area(b), area(k)),
-    )
-    if (overlaps) {
-      removedOverlap++
-      continue
-    }
-    kept.push(b)
   }
-  return { boxes: kept, removedSmall, removedOverlap }
+  const kept: DetBox[] = []
+  let removedOverlap = 0
+  normed.forEach((b, i) => {
+    if (remove[i]) removedOverlap++
+    else kept.push(b)
+  })
+  return { boxes: kept, removedSmall: 0, removedOverlap }
 }
 
 // Chỉ lấy danh sách box đã dọn (bỏ qua thống kê).

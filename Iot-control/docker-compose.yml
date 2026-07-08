@@ -48,7 +48,8 @@ services:
       - ./box-counter-service/model:/app/model:ro
     environment:
       MODEL_PATH: /app/model/best.pt
-      CONF_THRESHOLD: "0.5"
+      # Đã bỏ chế độ lọc → hạ về 0.25 (sàn conf cũ) để hiện đủ box, tự review thủ công.
+      CONF_THRESHOLD: "0.25"
       # Kích thước ảnh suy luận — 960 cân bằng độ chính xác/RAM (1280 dễ OOM).
       IMGSZ: "960"
       # IoU cho NMS — 0.7 (default YOLO) giữ được box xếp sát nhau.
@@ -57,12 +58,14 @@ services:
       # 0 vì box trong dataset rất nhỏ (~0.18%-0.9% diện tích ảnh) — lọc 0.3 sẽ loại hết.
       MIN_BOX_AREA_PCT: "0"
       # Soft-NMS: giảm đếm trùng ở cảnh box xếp khít (hạ điểm box chồng thay vì loại thẳng).
-      SOFT_NMS: "true"
+      # TẮT — bỏ lọc: giữ nguyên box chồng, không tự loại.
+      SOFT_NMS: "false"
       SOFT_NMS_SIGMA: "0.5"             # nhỏ hơn = phạt mạnh box chồng
       SOFT_NMS_CAND_IOU: "0.9"          # NMS lỏng khi gom ứng viên cho soft-NMS
       SOFT_NMS_CAND_CONF: "0.2"         # ngưỡng conf thấp khi gom ứng viên
       # Ngưỡng conf theo kích thước box (box nhỏ khắt khe hơn, box lớn dễ hơn).
-      SIZE_AWARE_CONF: "true"
+      # TẮT — bỏ lọc: không phạt conf theo kích thước, box nhỏ không bị loại thêm.
+      SIZE_AWARE_CONF: "false"
       SMALL_AREA_PCT: "1.0"             # box < 1% diện tích ảnh = nhỏ
       LARGE_AREA_PCT: "5.0"             # box > 5% diện tích ảnh = lớn
       CONF_SMALL: "0.25"             # box của dataset đều nhỏ (<1%) nên hạ ngưỡng conf

@@ -181,7 +181,7 @@ export default function CameraCaptureModal({ onCapture, onClose }: Props) {
           try {
             const res = await countBoxes([f])
             if (active) {
-              // Cùng điều kiện với review: bỏ box quá nhỏ + khử chồng > 0.25.
+              // Cùng điều kiện với review: bỏ khung bao ngoài (chứa ≥90% khung khác), giữ khung bị chứa.
               applyDetections(cleanupDetections(res.per_image?.[0]?.boxes ?? []))
               if (sample) prevSampleRef.current = sample
             }

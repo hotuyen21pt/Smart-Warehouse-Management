@@ -169,10 +169,11 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
 
   // Khi mở: báo số box đã tự lọc (nhỏ / chồng) để người dùng không bất ngờ.
   useEffect(() => {
-    const { removedSmall, removedOverlap } = statsRef.current!
-    const total = removedSmall + removedOverlap
+    const { removedSmall, removedOverlap, removedLowConf } = statsRef.current!
+    const total = removedSmall + removedOverlap + removedLowConf
     if (total > 0) {
       const parts: string[] = []
+      if (removedLowConf) parts.push(`${removedLowConf} tin cậy thấp`)
       if (removedSmall) parts.push(`${removedSmall} nhỏ`)
       if (removedOverlap) parts.push(`${removedOverlap} chồng`)
       flash(`Đã tự lọc ${total} box (${parts.join(', ')})`)
@@ -465,12 +466,13 @@ export default function BoxReviewModal({ src, initialBoxes, index, total, onConf
   // Kích thước hiển thị theo màn hình (không đổi khi zoom) cho viền & nút góc.
   const s = (v: number) => v / view.zoom
 
-  // Màu viền/nền theo độ tin cậy: box chọn = đỏ; thủ công (không conf) = tím;
-  // conf thấp = đỏ cam, trung bình = cam, cao = xanh — giúp ưu tiên box cần sửa.
+  // Màu viền/nền theo độ tin cậy (box conf ≤ 0.5 đã bị lọc bỏ ở cleanupWithStats):
+  // box chọn = đỏ đậm; thủ công (không conf) = tím; 0.5<conf<0.6 = đỏ;
+  // 0.6≤conf<0.7 = cam; conf≥0.7 = xanh — giúp ưu tiên box cần sửa.
   const boxColors = (b: DetBox, isSel: boolean) => {
     if (isSel) return { stroke: '#dc2626', fill: 'rgba(220,38,38,0.18)' }
     if (b.conf == null) return { stroke: '#7c3aed', fill: 'rgba(124,58,237,0.12)' }
-    if (b.conf < 0.5) return { stroke: '#ef4444', fill: 'rgba(239,68,68,0.12)' }
+    if (b.conf < 0.6) return { stroke: '#ef4444', fill: 'rgba(239,68,68,0.12)' }
     if (b.conf < 0.7) return { stroke: '#f59e0b', fill: 'rgba(245,158,11,0.14)' }
     return { stroke: '#2563eb', fill: 'rgba(37,99,235,0.12)' }
   }

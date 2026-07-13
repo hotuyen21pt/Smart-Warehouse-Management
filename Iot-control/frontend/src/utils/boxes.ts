@@ -35,11 +35,16 @@ export const OVERLAP_RATIO = 0.25
 // ngoài -> loại A, giữ B (khung bị chứa).
 export const CONTAIN_RATIO = 0.9
 
+// Box có conf ≤ ngưỡng này bị bỏ (nhận diện quá yếu, dễ dương-tính-giả).
+// Box thủ công (conf == null) không bị ảnh hưởng.
+export const CONF_FLOOR = 0.5
+
 // Thống kê quá trình dọn: box giữ lại + số box bị lọc theo từng lý do.
 export interface CleanupStats {
   boxes: DetBox[]
-  removedSmall: number   // số box bị bỏ vì diện tích quá nhỏ
-  removedOverlap: number // số box bị bỏ vì chồng box khác
+  removedSmall: number    // số box bị bỏ vì diện tích quá nhỏ
+  removedOverlap: number  // số box bị bỏ vì chồng box khác
+  removedLowConf: number  // số box bị bỏ vì conf ≤ CONF_FLOOR
 }
 
 // Lọc sau khi đã detect hết: nếu một khung CHỨA ≥ CONTAIN_RATIO (90%) diện tích
@@ -47,9 +52,18 @@ export interface CleanupStats {
 // Chỉ loại khung lớn hơn; nếu hai khung trùng khít (diện tích bằng nhau) thì loại
 // khung xuất hiện sau để không mất cả hai.
 export const cleanupWithStats = (raw: DetBox[]): CleanupStats => {
-  const normed = raw.map(normalize)
+  // Bỏ box có conf ≤ CONF_FLOOR trước (giữ box thủ công conf == null).
+  let removedLowConf = 0
+  const filtered = raw.filter((b) => {
+    if (b.conf != null && b.conf <= CONF_FLOOR) {
+      removedLowConf++
+      return false
+    }
+    return true
+  })
+  const normed = filtered.map(normalize)
   const n = normed.length
-  if (n === 0) return { boxes: normed, removedSmall: 0, removedOverlap: 0 }
+  if (n === 0) return { boxes: normed, removedSmall: 0, removedOverlap: 0, removedLowConf }
   const remove = new Array<boolean>(n).fill(false)
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
@@ -71,7 +85,7 @@ export const cleanupWithStats = (raw: DetBox[]): CleanupStats => {
     if (remove[i]) removedOverlap++
     else kept.push(b)
   })
-  return { boxes: kept, removedSmall: 0, removedOverlap }
+  return { boxes: kept, removedSmall: 0, removedOverlap, removedLowConf }
 }
 
 // Chỉ lấy danh sách box đã dọn (bỏ qua thống kê).

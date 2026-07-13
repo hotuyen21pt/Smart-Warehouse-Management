@@ -166,6 +166,37 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
     void processFiles(files)
   }
 
+  // Cho phép DÁN ảnh (Ctrl/⌘+V) vào modal để nhận diện — dùng chung luồng với nút
+  // Tải ảnh. Refs để listener gắn 1 lần vẫn gọi được state/hàm mới nhất.
+  const processFilesRef = useRef<(files: File[]) => Promise<void>>()
+  processFilesRef.current = processFiles
+  // Bỏ qua paste khi đang bận (đếm/tải) hoặc có modal khác đang mở đè lên.
+  const pasteBusyRef = useRef(false)
+  pasteBusyRef.current =
+    counting || uploading || reviewQueue.length > 0 || showCamera || editing != null
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      const imgs: File[] = []
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i]
+        if (it.kind !== 'file' || !it.type.startsWith('image/')) continue
+        const f = it.getAsFile()
+        if (!f) continue
+        // Ảnh chụp màn hình dán vào thường không có tên -> đặt tên để backend nhận.
+        imgs.push(f.name ? f : new File([f], `pasted-${i}.png`, { type: f.type || 'image/png' }))
+      }
+      if (imgs.length === 0) return // clipboard không có ảnh (vd dán text) -> để yên
+      e.preventDefault()
+      if (pasteBusyRef.current) return
+      resetInputs()
+      void processFilesRef.current?.(imgs)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [])
+
   type ReviewResult = { file: File; count: number; boxes: DetBox[]; edited: boolean; url: string }
 
   // Sau khi review hết hàng đợi: cộng tổng vào Số lượng và đưa ảnh vào luồng
@@ -575,6 +606,9 @@ export default function LotModal({ skuId, skuCode, skuName, lot, userBranch, onS
                 🖼️ Tải ảnh
               </button>
             </div>
+            <small style={{ display: 'block', marginTop: '0.35rem', color: 'var(--gray-400)', fontSize: '0.72rem' }}>
+              💡 hoặc dán ảnh trực tiếp (Ctrl+V)
+            </small>
 
             <input
               ref={fileInputRef}

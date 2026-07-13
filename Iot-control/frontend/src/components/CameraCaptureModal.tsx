@@ -19,6 +19,10 @@ const DIFF_THRESHOLD = 6 // ngưỡng đổi khung (0..255) để quyết địn
 const MATCH_DIST = 0.08 // khoảng cách tâm tối đa (chuẩn hoá) để coi là cùng box
 const EASE = 0.28 // hệ số tiến tới vị trí mới mỗi khung animation
 const MAX_MISSED = 3 // số nhịp liên tiếp không thấy trước khi xoá box
+// Ngưỡng conf riêng lúc NGẮM live — cao hơn CONF_FLOOR để đỡ nhiễu: khung hình
+// lúc ngắm hay động/mờ khiến model dựng box lạ (conf > 0.5 vẫn lọt). Upload/review
+// vẫn dùng CONF_FLOOR (0.5) thấp hơn để không bỏ sót box thật khi đã chụp xong.
+const LIVE_CONF = 0.6
 
 type Box = { x1: number; y1: number; x2: number; y2: number }
 type Track = { id: number; cur: Box; target: Box; missed: number }
@@ -181,8 +185,12 @@ export default function CameraCaptureModal({ onCapture, onClose }: Props) {
           try {
             const res = await countBoxes([f])
             if (active) {
-              // Cùng điều kiện với review: bỏ khung bao ngoài (chứa ≥90% khung khác), giữ khung bị chứa.
-              applyDetections(cleanupDetections(res.per_image?.[0]?.boxes ?? []))
+              // Lọc conf ≥ LIVE_CONF (đỡ box lạ lúc ngắm), rồi cùng điều kiện với
+              // review: bỏ khung bao ngoài (chứa ≥90% khung khác), giữ khung bị chứa.
+              const live = (res.per_image?.[0]?.boxes ?? []).filter(
+                (b) => b.conf == null || b.conf >= LIVE_CONF,
+              )
+              applyDetections(cleanupDetections(live))
               if (sample) prevSampleRef.current = sample
             }
           } catch {

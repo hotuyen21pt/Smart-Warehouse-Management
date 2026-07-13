@@ -60,7 +60,7 @@ services:
       - key: MODEL_PATH
         value: /app/model/best.pt
       - key: CONF_THRESHOLD
-        value: "0.5"
+        value: "0.55"
       # Kích thước ảnh suy luận — 960 cân bằng độ chính xác/RAM (1280 dễ OOM).
       - key: IMGSZ
         value: "960"
@@ -78,7 +78,7 @@ services:
       - key: SOFT_NMS_CAND_IOU
         value: "0.9"
       - key: SOFT_NMS_CAND_CONF
-        value: "0.2"
+        value: "0.25"
       # Ngưỡng conf theo kích thước box (box nhỏ khắt khe hơn, box lớn dễ hơn).
       - key: SIZE_AWARE_CONF
         value: "true"
@@ -87,9 +87,9 @@ services:
       - key: LARGE_AREA_PCT
         value: "5.0"
       - key: CONF_SMALL
-        value: "0.6"
+        value: "0.65"
       - key: CONF_LARGE
-        value: "0.4"
+        value: "0.45"
       # Tiền xử lý ảnh đầu vào.
       - key: PREPROCESS_EXIF           # sửa hướng ảnh điện thoại (nên bật)
         value: "true"

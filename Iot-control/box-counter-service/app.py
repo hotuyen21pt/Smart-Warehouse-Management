@@ -22,7 +22,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 # Cấu hình qua biến môi trường.
 MODEL_PATH = os.getenv("MODEL_PATH", "/app/model/best.pt")
-CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.5"))
+CONF_THRESHOLD = float(os.getenv("CONF_THRESHOLD", "0.55"))
 # Kích thước ảnh khi suy luận. Lớn hơn (960/1280) giúp bắt được box nhỏ/ở xa,
 # đổi lại chậm hơn và tốn RAM hơn.
 IMGSZ = int(os.getenv("IMGSZ", "960"))
@@ -44,7 +44,7 @@ SOFT_NMS_SIGMA = float(os.getenv("SOFT_NMS_SIGMA", "0.5"))
 # Khi bật soft-NMS: chạy model với NMS lỏng (iou cao) + ngưỡng conf thấp để giữ
 # nhiều ứng viên cho soft-NMS xử lý.
 SOFT_NMS_CAND_IOU = float(os.getenv("SOFT_NMS_CAND_IOU", "0.9"))
-SOFT_NMS_CAND_CONF = float(os.getenv("SOFT_NMS_CAND_CONF", "0.2"))
+SOFT_NMS_CAND_CONF = float(os.getenv("SOFT_NMS_CAND_CONF", "0.25"))
 
 # ── Ngưỡng conf theo kích thước box ────────────────────────────────────────
 # Box nhỏ (đặc trưng ít) dễ dương-tính-giả -> yêu cầu conf cao hơn; box lớn tin
@@ -52,8 +52,8 @@ SOFT_NMS_CAND_CONF = float(os.getenv("SOFT_NMS_CAND_CONF", "0.2"))
 SIZE_AWARE_CONF = _env_bool("SIZE_AWARE_CONF", True)
 SMALL_AREA_PCT = float(os.getenv("SMALL_AREA_PCT", "1.0"))   # < mốc này = box nhỏ
 LARGE_AREA_PCT = float(os.getenv("LARGE_AREA_PCT", "5.0"))   # > mốc này = box lớn
-CONF_SMALL = float(os.getenv("CONF_SMALL", "0.6"))
-CONF_LARGE = float(os.getenv("CONF_LARGE", "0.4"))
+CONF_SMALL = float(os.getenv("CONF_SMALL", "0.65"))
+CONF_LARGE = float(os.getenv("CONF_LARGE", "0.45"))
 
 
 def _iou_px(a: tuple, b: tuple) -> float:

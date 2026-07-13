@@ -37,7 +37,7 @@ export const CONTAIN_RATIO = 0.9
 
 // Box có conf ≤ ngưỡng này bị bỏ (nhận diện quá yếu, dễ dương-tính-giả).
 // Box thủ công (conf == null) không bị ảnh hưởng.
-export const CONF_FLOOR = 0.5
+export const CONF_FLOOR = 0.55
 
 // Thống kê quá trình dọn: box giữ lại + số box bị lọc theo từng lý do.
 export interface CleanupStats {

@@ -22,7 +22,7 @@ const MAX_MISSED = 3 // số nhịp liên tiếp không thấy trước khi xoá
 // Ngưỡng conf riêng lúc NGẮM live — cao hơn CONF_FLOOR để đỡ nhiễu: khung hình
 // lúc ngắm hay động/mờ khiến model dựng box lạ (conf > 0.5 vẫn lọt). Upload/review
 // vẫn dùng CONF_FLOOR (0.5) thấp hơn để không bỏ sót box thật khi đã chụp xong.
-const LIVE_CONF = 0.6
+const LIVE_CONF = 0.65
 
 type Box = { x1: number; y1: number; x2: number; y2: number }
 type Track = { id: number; cur: Box; target: Box; missed: number }

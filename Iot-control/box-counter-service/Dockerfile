@@ -8,7 +8,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# torch bản CPU (nhẹ ~200MB thay vì ~2.5GB CUDA) + tăng timeout/retries
+# vì mạng chậm hay làm pip "Read timed out" khi tải wheel lớn.
+# --mount=type=cache: giữ wheel đã tải trong cache BuildKit -> rebuild KHÔNG tải lại.
+# (Bỏ --no-cache-dir để pip dùng được cache mount này.)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --timeout 1000 --retries 10 \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r requirements.txt
 
 COPY app.py .
 

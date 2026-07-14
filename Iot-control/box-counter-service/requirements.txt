@@ -2,5 +2,9 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 pillow==11.1.0
+# Ép torch bản CPU (+cpu) — chỉ có trên index download.pytorch.org/whl/cpu,
+# tránh pip kéo nhầm bản CUDA ~2.5GB (nguyên nhân "Read timed out").
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
 ultralytics==8.3.55
 opencv-python-headless==4.10.0.84
